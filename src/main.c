@@ -176,7 +176,7 @@ void particle_metropolis_hastings(double **positions, int iterations, int N, dou
     }
     double percent_accepted = 100 * accepted / (iterations * N);
     printf("\n\npercent accepted: %f\nnumber accepted: %d\n\n\n", percent_accepted, accepted);
-    // export_positions(positions_saved, iterations, N);
+    export_positions(positions_saved, iterations, N);
     for (int i = 0; i < iterations; i++) {
         for (int j = 0; j < N; j++) {
             free(positions_saved[i][j]);
@@ -190,12 +190,8 @@ void particle_metropolis_hastings(double **positions, int iterations, int N, dou
 void export_positions(double ***positions_saved, int iterations, int N) {
     FILE *fp = fopen("simulation_data.txt", "w");
     for (int i = 0; i < iterations; i++) {
-        fprintf(fp, "iteration: %d\n", i + 1);
         for (int j = 0; j < N; j++) {
-            fprintf(fp, "\nparticle %d: ", j + 1);
-            for (int k = 0; k < 3; k++) {
-                fprintf(fp, "%f ", positions_saved[i][j][k]);
-            }
+            fprintf(fp, "%f %f %f\n", positions_saved[i][j][0], positions_saved[i][j][1], positions_saved[i][j][2]);
         }
     }
     fclose(fp);
