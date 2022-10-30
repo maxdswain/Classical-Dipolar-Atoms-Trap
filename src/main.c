@@ -105,7 +105,7 @@ double calculate_energy(double **positions, double *position, int N, double m, i
             }
             distance = magnitude(displacement, 3);
             vector_term = dot_product(displacement, dipole_unit_vector, 3); 
-            dipole_dipole_interaction += (mu_zero * dipole_moment * dipole_moment) * (distance * distance - 3 * vector_term * vector_term) / (4 * M_PI * pow(distance, 5));
+            dipole_dipole_interaction += 1 / pow(distance, 12) + (mu_zero * dipole_moment * dipole_moment) * (distance * distance - 3 * vector_term * vector_term) / (4 * M_PI * pow(distance, 5));
         }
     }
     // printf("values: %e %f %f\n", m, frequency_z, frequency_transverse);
@@ -117,11 +117,12 @@ double calculate_energy(double **positions, double *position, int N, double m, i
 double calculate_total_energy(double **positions, int N, double m, double dipole_moment, double frequency_z, double frequency_transverse) {
     const double mu_zero = 1.25663706212e-6; // vacuum permeability in SI units
     const double dipole_unit_vector[3] = {8 / sqrt(74), 3 / sqrt(74), 1 / sqrt(74)};
+    double total_trapping_potential = 0;
     double total_dipole_dipole_interaction = 0;
-    double displacement[3], distance, vector_term, total_trapping_potential;
+    double displacement[3], distance, vector_term;
 
     for (int i = 0; i < N; i++) {
-        total_trapping_potential = 0.5 * m * frequency_z * frequency_z * ((frequency_transverse / frequency_z) * (frequency_transverse / frequency_z) * (positions[i][0] * positions[i][0] + positions[i][1] * positions[i][1]) + positions[i][2] * positions[i][2]);
+        total_trapping_potential += 0.5 * m * frequency_z * frequency_z * ((frequency_transverse / frequency_z) * (frequency_transverse / frequency_z) * (positions[i][0] * positions[i][0] + positions[i][1] * positions[i][1]) + positions[i][2] * positions[i][2]);
         for (int j = 0; j < N; j++) {
             if (j < i) {
                 for (int k = 0; k < 3; k++) {
@@ -129,11 +130,11 @@ double calculate_total_energy(double **positions, int N, double m, double dipole
                 }
                 distance = magnitude(displacement, 3);
                 vector_term = dot_product(displacement, dipole_unit_vector, 3); 
-                total_dipole_dipole_interaction += (mu_zero * dipole_moment * dipole_moment) * (distance * distance - 3 * vector_term * vector_term) / (4 * M_PI * pow(distance, 5));
+                total_dipole_dipole_interaction += 1 / pow(distance, 12) + (mu_zero * dipole_moment * dipole_moment) * (distance * distance - 3 * vector_term * vector_term) / (4 * M_PI * pow(distance, 5));
             }
         }
     }
-    return 0.5 * (total_trapping_potential + total_dipole_dipole_interaction);
+    return total_trapping_potential + total_dipole_dipole_interaction;
 }
 
 void particle_metropolis_hastings(double **positions, int iterations, int N, double m, int T, double sigma, double dipole_moment, double frequency_z, double frequency_transverse) {
