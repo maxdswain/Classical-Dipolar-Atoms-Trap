@@ -14,6 +14,7 @@ N = config["simulation_properties"]["particles"]
 T = config["simulation_properties"]["temperature"]
 m = config["simulation_properties"]["mass"]
 dipole_moment = config["simulation_properties"]["magnetic_dipole_moment"]
+dipole_unit_vector = np.array(config["simulation_properties"]["dipole_unit_vector"])
 frequency_z = config["simulation_properties"]["trapping_frequency_z"]
 frequency_transverse = config["simulation_properties"]["trapping_frequency_transverse"]
 
@@ -32,7 +33,6 @@ def calculate_energies(positions):
     mu_zero = 1.25663706212e-6
     temp = 0
     energies = []
-    dipole_unit_vector = np.array([8 / np.sqrt(74), 3 / np.sqrt(74), 1 / np.sqrt(74)])
     for i in range(N):
         trapping_potential = 0.5 * m * frequency_z**2 * ((frequency_transverse / frequency_z)**2 * (positions[-1][i][0]**2 + positions[-1][i][1]**2) + positions[-1][i][2]**2)
         for j in range(N):
@@ -49,12 +49,14 @@ if __name__ == "__main__":
     positions = read_simulation_data()
     energies = calculate_energies(positions)
     distances = np.linalg.norm(positions[-1], axis=1)
+    params = maxwell.fit(distances)
 
     _, ax = plt.subplots(1, 1)
-    ax.hist(distances)
-    # ax.plot()
-    # ax.set(xlabel="Energy", ylabel="Frequency")
-    # ax.legend(loc="upper right")
+    ax.hist(distances, bins=30, density=True, alpha=0.5)
+    linspace = np.linspace(np.min(distances), np.max(distances), N)
+    ax.plot(linspace, maxwell.pdf(linspace, *params), "r-", lw=2, label="Boltzmann distribution")
+    ax.set(xlabel="Distances", ylabel="Frequency")
+    ax.legend(loc="upper right")
     plt.show()
 
     print(positions[0], sum(energies), distances)

@@ -8,4 +8,4 @@ main: src/main.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 clean:
-	rm main
+	rm main *.txt
