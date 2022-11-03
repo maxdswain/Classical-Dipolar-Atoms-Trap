@@ -1,11 +1,11 @@
 [simulation_properties]
-particles = 400
+particles = 250
 repetitions = 5000
-temperature = 300 # Temperature in Kelvin
-sigma = 0.15 # Should be a value so that the acceptance rate is 50% - 0.0000005
-mass = 2.72328406922e-25 # in kg, roughly mass of one Dysprosium 164 atom
-magnetic_dipole_moment = 9.2740100783e-23 # in J/T, 10 times (Dysprosium magnetic moment) magnetic dipole moment of a hydrogen atom (Bohr magneton)
+temperature = 300.0 # Temperature in Kelvin
+sigma = 0.0015 # Should be a value so that the acceptance rate is 50%
+mass = 1.0
+dipole_moment = 10.0 # in Bohr magnetons, 10 times (Dysprosium magnetic moment) magnetic dipole moment of a hydrogen atom (Bohr magneton)
 dipole_unit_vector = [0.92998110995, 0.34874291623, 0.11624763874] # [8 / sqrt(74), 3 / sqrt(74), 1 / sqrt(74)]
-trapping_frequency_z = 250000 # in Hz, 250kHz
-trapping_frequency_transverse = 400 # in Hz
-box_length = 500.0 # in m
+trapping_frequency_z = 1.0 # in Hz
+trapping_frequency_transverse = 1.0 # in Hz
+box_length = 75.0 # in Bohr radii

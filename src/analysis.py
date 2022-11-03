@@ -1,62 +1,52 @@
 #!/usr/bin/env python3
 
-from copy import deepcopy
-
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.typing as npt
 import tomli
-from scipy.stats import maxwell
 
 with open("config.toml", "rb") as f:
     config = tomli.load(f)
 
 N = config["simulation_properties"]["particles"]
+ITERATIONS = config["simulation_properties"]["repetitions"]
 T = config["simulation_properties"]["temperature"]
-m = config["simulation_properties"]["mass"]
-dipole_moment = config["simulation_properties"]["magnetic_dipole_moment"]
-dipole_unit_vector = np.array(config["simulation_properties"]["dipole_unit_vector"])
-frequency_z = config["simulation_properties"]["trapping_frequency_z"]
-frequency_transverse = config["simulation_properties"]["trapping_frequency_transverse"]
+M = config["simulation_properties"]["mass"]
+DIPOLE_MOMENT = config["simulation_properties"]["dipole_moment"]
+DIPOLE_UNIT_VECTOR = np.array(config["simulation_properties"]["dipole_unit_vector"])
+FREQUENCY_Z = config["simulation_properties"]["trapping_frequency_z"]
+FREQUENCY_TRANSVERSE = config["simulation_properties"]["trapping_frequency_transverse"]
 
-def read_simulation_data():
-    positions, counter, temp_array = [], 0, np.empty(shape=(N, 3))
+def read_simulation_data() -> npt.NDArray[np.float64]:
+    positions = np.empty(shape=(ITERATIONS, N, 3))
     with open("simulation_data.txt") as f:
-        for line in f:
-            temp_array[counter] = [float(x) for x in line.split()]
-            counter += 1
-            if counter == N:
-                positions.append(deepcopy(temp_array))
-                counter, temp_array = 0, np.empty(shape=(N, 3))
+        for i, line in enumerate(f):
+            positions[int(i / N)][i % N] = [float(x) for x in line.split()]
     return positions
 
-def calculate_energies(positions):
-    mu_zero = 1.25663706212e-6
-    temp = 0
+def calculate_energies(positions: npt.NDArray[np.float64]) -> list:
     energies = []
     for i in range(N):
-        trapping_potential = 0.5 * m * frequency_z**2 * ((frequency_transverse / frequency_z)**2 * (positions[-1][i][0]**2 + positions[-1][i][1]**2) + positions[-1][i][2]**2)
+        trapping_potential = 0.5 * M * FREQUENCY_Z**2 * ((FREQUENCY_TRANSVERSE / FREQUENCY_Z)**2 * np.sum(positions[-1][i][:2]**2) + positions[-1][i][2]**2)
+        temp = 0
         for j in range(N):
             if j < i:
                 displacement = positions[-1][i] - positions[-1][j]
                 distance = np.linalg.norm(displacement)
-                vector_term = np.dot(displacement, dipole_unit_vector)
-                temp += 1 / distance**12 + (mu_zero * dipole_moment * dipole_moment) * (distance**2 - 3 * vector_term**2) / (4 * np.pi * distance**5)
+                temp += distance**-6 + DIPOLE_MOMENT**2 * (distance**2 - 3 * np.dot(displacement, DIPOLE_UNIT_VECTOR)**2) / distance**5
         energies.append(trapping_potential + temp)
-        temp = 0
     return energies
 
 if __name__ == "__main__":
     positions = read_simulation_data()
     energies = calculate_energies(positions)
     distances = np.linalg.norm(positions[-1], axis=1)
-    params = maxwell.fit(distances)
 
     _, ax = plt.subplots(1, 1)
-    ax.hist(distances, bins=30, density=True, alpha=0.5)
-    linspace = np.linspace(np.min(distances), np.max(distances), N)
-    ax.plot(linspace, maxwell.pdf(linspace, *params), "r-", lw=2, label="Boltzmann distribution")
-    ax.set(xlabel="Distances", ylabel="Frequency")
-    ax.legend(loc="upper right")
+    ax.hist(energies, bins=30, density=True, alpha=0.5)
+    # ax.plot(PLACEHOLDER1, PLACEHOLDER2, "r-", lw=2, label="Boltzmann distribution")
+    ax.set(xlabel="Energies", ylabel="Frequency")
+    # ax.legend(loc="upper right")
     plt.show()
 
-    print(positions[0], sum(energies), distances)
+    print(positions[-1], sum(energies), distances)
