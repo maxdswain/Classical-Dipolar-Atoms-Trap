@@ -1,47 +1,30 @@
 #!/usr/bin/env python3
 
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
+
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
-import tomli
 
 with open("config.toml", "rb") as f:
-    config = tomli.load(f)
+    config = tomllib.load(f)
 
 N = config["simulation_properties"]["particles"]
 ITERATIONS = config["simulation_properties"]["repetitions"]
-T = config["simulation_properties"]["temperature"]
-M = config["simulation_properties"]["mass"]
-DIPOLE_MOMENT = config["simulation_properties"]["dipole_moment"]
-DIPOLE_UNIT_VECTOR = np.array(config["simulation_properties"]["dipole_unit_vector"])
-FREQUENCY_Z = config["simulation_properties"]["trapping_frequency_z"]
-FREQUENCY_TRANSVERSE = config["simulation_properties"]["trapping_frequency_transverse"]
 
-def read_simulation_data() -> npt.NDArray[np.float64]:
+def read_simulation_data() -> tuple[npt.NDArray[np.float64], list[float]]:
     positions = np.empty(shape=(ITERATIONS, N, 3))
-    with open("simulation_data.txt") as f:
+    with open("simulation_position_data.txt") as f:
         for i, line in enumerate(f):
             positions[int(i / N)][i % N] = [float(x) for x in line.split()]
-    return positions
+    with open("simulation_energy_data.txt") as f:
+        energies = [float(line) for line in f]
+    return positions, energies
 
-def calculate_energies(positions: npt.NDArray[np.float64]) -> list:
-    energies = []
-    for i in range(N):
-        trapping_potential = 0.5 * M * FREQUENCY_Z**2 * ((FREQUENCY_TRANSVERSE / FREQUENCY_Z)**2 * np.sum(positions[-1][i][:2]**2) + positions[-1][i][2]**2)
-        temp = 0
-        for j in range(N):
-            if j < i:
-                displacement = positions[-1][i] - positions[-1][j]
-                distance = np.linalg.norm(displacement)
-                temp += distance**-6 + DIPOLE_MOMENT**2 * (distance**2 - 3 * np.dot(displacement, DIPOLE_UNIT_VECTOR)**2) / distance**5
-        energies.append(trapping_potential + temp)
-    return energies
-
-if __name__ == "__main__":
-    positions = read_simulation_data()
-    energies = calculate_energies(positions)
-    distances = np.linalg.norm(positions[-1], axis=1)
-
+def plot_energy_histogram(energies: list[float]) -> None:
     _, ax = plt.subplots(1, 1)
     ax.hist(energies, bins=30, density=True, alpha=0.5)
     # ax.plot(PLACEHOLDER1, PLACEHOLDER2, "r-", lw=2, label="Boltzmann distribution")
@@ -49,4 +32,16 @@ if __name__ == "__main__":
     # ax.legend(loc="upper right")
     plt.show()
 
-    print(positions[-1], sum(energies), distances)
+def plot_positions_iterations(positions: npt.NDArray[np.float64], component: int) -> None:
+    _, ax = plt.subplots(1, 1)
+    ax.scatter([i for i in range(1, ITERATIONS + 1) for j in range(N)], positions[..., component].reshape(ITERATIONS * N,), alpha=0.5)
+    plt.show()
+
+if __name__ == "__main__":
+    positions, energies = read_simulation_data()
+    distances = np.linalg.norm(positions[-1], axis=1)
+
+    # plot_energy_histogram(energies)
+    plot_positions_iterations(positions, 0)
+
+    print(positions[-1][19][0], sum(energies))
