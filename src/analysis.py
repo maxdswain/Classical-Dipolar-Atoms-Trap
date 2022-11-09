@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from collections.abc import Callable
 try:
     import tomllib
 except ModuleNotFoundError:
@@ -7,15 +8,15 @@ except ModuleNotFoundError:
 
 import matplotlib.pyplot as plt
 import numpy as np
-import numpy.typing as npt
 
 with open("config.toml", "rb") as f:
     config = tomllib.load(f)
 
 N = config["simulation_properties"]["particles"]
 ITERATIONS = config["simulation_properties"]["repetitions"]
+T = config["simulation_properties"]["temperature"]
 
-def read_simulation_data() -> tuple[npt.NDArray[np.float64], list[float]]:
+def read_simulation_data() -> tuple[np.ndarray[np.float64], list[float]]:
     positions = np.empty(shape=(ITERATIONS, N, 3))
     with open("simulation_position_data.txt") as f:
         for i, line in enumerate(f):
@@ -24,24 +25,27 @@ def read_simulation_data() -> tuple[npt.NDArray[np.float64], list[float]]:
         energies = [float(line) for line in f]
     return positions, energies
 
+def boltzmann_distribution(energies: list[float]) -> Callable[[float], float]:
+    BOLTZMANN_CONSTANT = 3.167e-6  # Boltzmann constant in Hartree units
+    Z = sum([np.exp(-energy / (BOLTZMANN_CONSTANT * T)) for energy in energies])
+    return lambda energy: np.exp(-energy / (BOLTZMANN_CONSTANT * T)) / Z
+
 def plot_energy_histogram(energies: list[float]) -> None:
     _, ax = plt.subplots(1, 1)
+    distribution = boltzmann_distribution(energies)
     ax.hist(energies, bins=30, density=True, alpha=0.5)
-    # ax.plot(PLACEHOLDER1, PLACEHOLDER2, "r-", lw=2, label="Boltzmann distribution")
+    ax.plot(energies, [distribution(energy) for energy in energies], "r-", lw=2, label="Boltzmann distribution")
     ax.set(xlabel="Energies", ylabel="Frequency")
-    # ax.legend(loc="upper right")
+    ax.legend(loc="upper right")
     plt.show()
 
-def plot_positions_iterations(positions: npt.NDArray[np.float64], component: int) -> None:
-    _, ax = plt.subplots(1, 1)
-    ax.scatter([i for i in range(1, ITERATIONS + 1) for j in range(N)], positions[..., component].reshape(ITERATIONS * N,), alpha=0.5)
+def plot_positions_iterations(positions: np.ndarray[np.float64], component: int) -> None:
+    plt.scatter([i for i in range(1, ITERATIONS + 1) for j in range(N)], positions[..., component].reshape(ITERATIONS * N,), alpha=0.5)
     plt.show()
 
 if __name__ == "__main__":
     positions, energies = read_simulation_data()
     distances = np.linalg.norm(positions[-1], axis=1)
 
-    # plot_energy_histogram(energies)
+    plot_energy_histogram(energies)
     plot_positions_iterations(positions, 0)
-
-    print(positions[-1][19][0], sum(energies))
