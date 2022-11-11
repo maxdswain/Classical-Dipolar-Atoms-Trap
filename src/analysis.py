@@ -31,16 +31,20 @@ def boltzmann_distribution(energies: list[float]) -> Callable[[float], float]:
     return lambda energy: np.exp(-energy / (BOLTZMANN_CONSTANT * T)) / Z
 
 def plot_energy_histogram(energies: list[float]) -> None:
-    _, ax = plt.subplots(1, 1)
+    _, ax = plt.subplots()
     distribution = boltzmann_distribution(energies)
-    ax.hist(energies, bins=30, density=True, alpha=0.5)
+    ax.hist(energies, bins=30, alpha=0.5)
     ax.plot(energies, [distribution(energy) for energy in energies], "r-", lw=2, label="Boltzmann distribution")
-    ax.set(xlabel="Energies", ylabel="Frequency")
+    ax.set(xlabel="Energy", ylabel="Frequency")
     ax.legend(loc="upper right")
     plt.show()
 
 def plot_positions_iterations(positions: np.ndarray[np.float64], component: int) -> None:
-    plt.scatter([i for i in range(1, ITERATIONS + 1) for j in range(N)], positions[..., component].reshape(ITERATIONS * N,), alpha=0.5)
+    _, ax = plt.subplots()
+    for i in range(N):
+        ax.plot([i for i in range(1, ITERATIONS + 1)], positions[:, i, component])
+    ax.set(xlabel="Iterations", ylabel=f"${['x', 'y', 'z'][component]}$ Positions")
+    # plt.scatter([i for i in range(1, ITERATIONS + 1) for j in range(N)], positions[..., component].reshape(ITERATIONS * N,), alpha=0.5)
     plt.show()
 
 if __name__ == "__main__":
