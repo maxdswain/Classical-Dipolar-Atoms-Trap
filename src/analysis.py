@@ -45,14 +45,20 @@ def plot_energy_histogram(energies: list[float]) -> None:
 def plot_positions_iterations(positions: np.ndarray[np.float64], component: int) -> None:
     _, ax = plt.subplots()
     for i in range(N):
-        ax.plot([SAMPLING_RATE * i for i in range(1, ITERATIONS // SAMPLING_RATE + 1)], positions[:, i, component])
+        ax.plot(np.linspace(SAMPLING_RATE, ITERATIONS, ITERATIONS // SAMPLING_RATE), positions[:, i, component])
     ax.set(xlabel="Iterations", ylabel=f"${['x', 'y', 'z'][component]}$ Positions")
-    # plt.scatter([i for i in range(1, ITERATIONS + 1) for j in range(N)], positions[..., component].reshape(ITERATIONS * N,), alpha=0.5)
+    plt.show()
+
+def plot_snapshot(positions: np.ndarray[np.float64], iteration: int) -> None:
+    _, ax = plt.subplots()
+    ax.scatter(positions[iteration, :, 0], positions[iteration, :, 1], c="black")
+    ax.set(xlabel="$x$ Positions", ylabel="$y$ Positions")
     plt.show()
 
 if __name__ == "__main__":
     positions, energies = read_simulation_data()
     distances = np.linalg.norm(positions[-1], axis=1)
 
+    plot_snapshot(positions, -1)
     plot_energy_histogram(energies)
     plot_positions_iterations(positions, 0)
