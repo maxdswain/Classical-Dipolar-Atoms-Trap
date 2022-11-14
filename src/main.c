@@ -1,4 +1,5 @@
 #include <math.h>
+#include <time.h>
 #include <toml.h>
 #include <gsl/gsl_randist.h>
 
@@ -18,13 +19,14 @@ void metropolis_hastings(double **positions, int ITERATIONS, int N, double M, in
 double *reblocking(double *energies_saved, int size, int BTN);
 void export_positions(Double3D *positions_saved);
 void export_energies(double *mean_energies, int size);
+void progress_bar(double progress, double time);
 
 int main(int argc, char **argv) {
     int N, ITERATIONS, SAMPLING_RATE, BTN;
     double T, M, LENGTH, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR[3], FREQUENCY_Z, FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT;
     read_config(&N, &ITERATIONS, &T, &M, &LENGTH, &SIGMA, &DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR, &FREQUENCY_Z, &FREQUENCY_TRANSVERSE, &WALL_REPULSION_COEFFICIENT, &SAMPLING_RATE, &BTN);
 
-    printf("Current variables set in config:\nN: %d\niterations: %d\ntemperature: %f\nmass: %f\nlength: %f\nsigma: %e\ndipole moment magnitude: %f\ndipole unit vector: %f %f %f\nfrequency_z %f\nfrequency_transverse %f\nhard wall repulsion coefficient %f\n", N, ITERATIONS, T, M, LENGTH, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR[0], DIPOLE_UNIT_VECTOR[1], DIPOLE_UNIT_VECTOR[2], FREQUENCY_Z, FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT);
+    printf("Current variables set in config:\nN: %d\niterations: %d\ntemperature: %f\nmass: %f\nlength: %f\nsigma: %e\ndipole moment magnitude: %f\ndipole unit vector: %f %f %f\nfrequency_z %f\nfrequency_transverse %f\nhard wall repulsion coefficient %f\n\n", N, ITERATIONS, T, M, LENGTH, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR[0], DIPOLE_UNIT_VECTOR[1], DIPOLE_UNIT_VECTOR[2], FREQUENCY_Z, FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT);
 
     double **positions = position_random_generation(N, LENGTH);
     metropolis_hastings(positions, ITERATIONS, N, M, T, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR, FREQUENCY_Z, FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT, SAMPLING_RATE, BTN);
@@ -158,6 +160,8 @@ double calculate_total_energy(double **positions, int N, double M, double DIPOLE
 }
 
 void metropolis_hastings(double **positions, int ITERATIONS, int N, double M, int T, double SIGMA, double DIPOLE_MOMENT, double *DIPOLE_UNIT_VECTOR, double FREQUENCY_Z, double FREQUENCY_TRANSVERSE, double WALL_REPULSION_COEFFICIENT, int SAMPLING_RATE, int BTN) {
+    clock_t begin = clock();
+    
     gsl_rng_env_setup();
     gsl_rng *r = gsl_rng_alloc(gsl_rng_default); // generator type
 
@@ -197,10 +201,13 @@ void metropolis_hastings(double **positions, int ITERATIONS, int N, double M, in
                 }
             }
         }
+        clock_t end = clock();
+        double time = (double)(end - begin) / CLOCKS_PER_SEC;
+        progress_bar(((double)i + 1) / (double)ITERATIONS, time);
     }
     gsl_rng_free(r);
     double percent_accepted = 100 * accepted / (ITERATIONS * N);
-    printf("\n\npercent accepted: %f%%\nnumber accepted: %d\n\n\n", percent_accepted, accepted);
+    printf("\n\npercent accepted: %.2f%%\nnumber accepted: %d\n\n\n", percent_accepted, accepted);
     double *mean_energies = reblocking(energies_saved, ITERATIONS / SAMPLING_RATE, BTN);
     free(energies_saved);
     export_energies(mean_energies, (ITERATIONS / SAMPLING_RATE) / pow(2, BTN));
@@ -243,4 +250,32 @@ void export_energies(double *mean_energies, int size) {
         fprintf(fp, "%f\n", mean_energies[i]);
     }
     fclose(fp);
+}
+
+void progress_bar(double progress, double time) {
+    int barWidth = 70;
+
+    printf("\r|");
+    int pos = barWidth * progress;
+    for (int i = 0; i < barWidth; i++) {
+        if (i < pos) {
+            printf("█");
+        }
+        else {
+            if (i == pos) {
+                printf(">");
+            }
+            else {
+                printf("-");
+            }
+        }
+    }
+    if (progress == 1.0) {
+        printf("| %.2f %% Total time taken: %.2fs", progress * 100.0, time);
+        fflush(stdout);
+    }
+    else {
+        printf("| %.2f %%", progress * 100.0);
+        fflush(stdout);
+    }
 }
