@@ -18,21 +18,17 @@ ITERATIONS = config["simulation_properties"]["repetitions"]
 T = config["simulation_properties"]["temperature"]
 SAMPLING_RATE = config["simulation_properties"]["sampling_rate"]
 
-def read_simulation_data() -> tuple[np.ndarray[np.float64], list[float]]:
-    positions = np.empty(shape=(ITERATIONS // SAMPLING_RATE, N, 3))
-    with open("simulation_position_data.txt") as f:
-        for i, line in enumerate(f):
-            positions[int(i / N)][i % N] = [float(x) for x in line.split()]
-    with open("simulation_energy_data.txt") as f:
-        energies = [float(line) for line in f]
-    return positions, energies[500:]
+def read_simulation_data() -> tuple[np.ndarray[np.float64], np.ndarray[np.float64]]:
+    positions = np.loadtxt("simulation_position_data.txt").reshape(ITERATIONS // SAMPLING_RATE, N, 3)
+    energies = np.loadtxt("simulation_energy_data.txt", skiprows=500)
+    return positions, energies
 
-def boltzmann_distribution(energies: list[float]) -> Callable[[float], float]:
+def boltzmann_distribution(energies: np.ndarray[np.float64]) -> Callable[[float], float]:
     BOLTZMANN_CONSTANT = 3.167e-6  # Boltzmann constant in Hartree units
     Z = sum([np.exp(-energy / (BOLTZMANN_CONSTANT * T)) for energy in energies])
     return lambda energy: len(energies) * np.exp(-energy / (BOLTZMANN_CONSTANT * T)) / Z
 
-def plot_energy_histogram(energies: list[float]) -> None:
+def plot_energy_histogram(energies: np.ndarray[np.float64]) -> None:
     _, ax = plt.subplots()
     sorted_energies = sorted(energies)
     distribution = boltzmann_distribution(sorted_energies)
