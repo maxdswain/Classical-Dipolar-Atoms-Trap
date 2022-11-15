@@ -18,25 +18,35 @@ ITERATIONS = config["simulation_properties"]["repetitions"]
 T = config["simulation_properties"]["temperature"]
 SAMPLING_RATE = config["simulation_properties"]["sampling_rate"]
 
+
 def read_simulation_data() -> tuple[np.ndarray[np.float64], np.ndarray[np.float64]]:
     positions = np.loadtxt("simulation_position_data.txt").reshape(ITERATIONS // SAMPLING_RATE, N, 3)
     energies = np.loadtxt("simulation_energy_data.txt", skiprows=500)
     return positions, energies
+
 
 def boltzmann_distribution(energies: np.ndarray[np.float64]) -> Callable[[float], float]:
     BOLTZMANN_CONSTANT = 3.167e-6  # Boltzmann constant in Hartree units
     Z = sum([np.exp(-energy / (BOLTZMANN_CONSTANT * T)) for energy in energies])
     return lambda energy: len(energies) * np.exp(-energy / (BOLTZMANN_CONSTANT * T)) / Z
 
+
 def plot_energy_histogram(energies: np.ndarray[np.float64]) -> None:
     _, ax = plt.subplots()
     sorted_energies = sorted(energies)
     distribution = boltzmann_distribution(sorted_energies)
     ax.hist(energies, bins=30, alpha=0.5)
-    ax.plot(sorted_energies, [distribution(energy) for energy in sorted_energies], "r-", lw=2, label="Boltzmann distribution")
+    ax.plot(
+        sorted_energies,
+        [distribution(energy) for energy in sorted_energies],
+        "r-",
+        lw=2,
+        label="Boltzmann distribution",
+    )
     ax.set(xlabel="Energy", ylabel="Frequency")
     ax.legend(loc="upper right")
     plt.show()
+
 
 def plot_positions_iterations(positions: np.ndarray[np.float64], component: int) -> None:
     _, ax = plt.subplots()
@@ -45,11 +55,13 @@ def plot_positions_iterations(positions: np.ndarray[np.float64], component: int)
     ax.set(xlabel="Iterations", ylabel=f"${['x', 'y', 'z'][component]}$ Positions")
     plt.show()
 
+
 def plot_snapshot(positions: np.ndarray[np.float64], iteration: int) -> None:
     _, ax = plt.subplots()
     ax.scatter(positions[iteration, :, 0], positions[iteration, :, 1], c="black")
     ax.set(xlabel="$x$ Positions", ylabel="$y$ Positions")
     plt.show()
+
 
 if __name__ == "__main__":
     positions, energies = read_simulation_data()
