@@ -29,15 +29,15 @@ double *reblocking(double *energies_saved, int size, int BTN);
 double *calculate_errors(double *mean_energies, int size, int N);
 void export_positions(Double3D *positions_saved);
 void export_1D_array(char *filename, double *array, int size);
-void progress_bar(double progress, double time);
+void progress_bar(double progress, double time_taken);
 
 int main(int argc, char **argv) {
+    // Declare then read constants from a config file and print them out
     int N, ITERATIONS, SAMPLING_RATE, BTN;
     double T, M, LENGTH, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR[3], FREQUENCY_Z, FREQUENCY_TRANSVERSE,
         WALL_REPULSION_COEFFICIENT;
     read_config(&N, &ITERATIONS, &T, &M, &LENGTH, &SIGMA, &DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR, &FREQUENCY_Z,
                 &FREQUENCY_TRANSVERSE, &WALL_REPULSION_COEFFICIENT, &SAMPLING_RATE, &BTN);
-
     printf(
         "Current variables set in config:\nN: %d\niterations: %d\ntemperature: %f\nmass: %f\nlength: %f\nsigma: "
         "%e\ndipole moment magnitude: %f\ndipole unit vector: %f %f %f\nfrequency_z %f\nfrequency_transverse %f\nhard "
@@ -45,6 +45,7 @@ int main(int argc, char **argv) {
         N, ITERATIONS, T, M, LENGTH, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR[0], DIPOLE_UNIT_VECTOR[1],
         DIPOLE_UNIT_VECTOR[2], FREQUENCY_Z, FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT);
 
+    // Run simulation using values read from config file then calculate total energy of the last configuration
     double **positions = position_random_generation(N, LENGTH);
     metropolis_hastings(positions, ITERATIONS, N, M, T, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR, FREQUENCY_Z,
                         FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT, SAMPLING_RATE, BTN);
@@ -63,12 +64,12 @@ int main(int argc, char **argv) {
 void read_config(int *N, int *ITERATIONS, double *T, double *M, double *LENGTH, double *SIGMA, double *DIPOLE_MOMENT,
                  double *DIPOLE_UNIT_VECTOR, double *FREQUENCY_Z, double *FREQUENCY_TRANSVERSE,
                  double *WALL_REPULSION_COEFFICIENT, int *SAMPLING_RATE, int *BTN) {
-    FILE *fp = fopen("config.toml", "r");  // 1. Read and parse toml file
+    FILE *fp = fopen("config.toml", "r");  // Read and parse toml file
     char errbuf[200];
     toml_table_t *conf = toml_parse_file(fp, errbuf, sizeof(errbuf));
     fclose(fp);
-    toml_table_t *properties = toml_table_in(conf, "simulation_properties");  // 2. Traverse to a table.
-    toml_datum_t particles = toml_int_in(properties, "particles");            // 3. Extract values
+    toml_table_t *properties = toml_table_in(conf, "simulation_properties");  // Traverse to a table
+    toml_datum_t particles = toml_int_in(properties, "particles");            // Extract values from table
     *N = particles.u.i;
     toml_datum_t repetitions = toml_int_in(properties, "repetitions");
     *ITERATIONS = repetitions.u.i;
@@ -97,13 +98,14 @@ void read_config(int *N, int *ITERATIONS, double *T, double *M, double *LENGTH, 
     *SAMPLING_RATE = data_sampling_rate.u.i;
     toml_datum_t blocking_transformation_number = toml_int_in(properties, "blocking_transformation_number");
     *BTN = blocking_transformation_number.u.i;
-    toml_free(conf);  // 4. Free memory
+    toml_free(conf);  // Free memory
 }
 
 double **position_random_generation(int N, double max) {
     gsl_rng_env_setup();
-    gsl_rng *r = gsl_rng_alloc(gsl_rng_default);  // generator type
+    gsl_rng *r = gsl_rng_alloc(gsl_rng_default);  // Generator type
 
+    // Randomly generate N x 3 array from uniform distribution
     double **array = malloc(N * sizeof(*array));
     for (int i = 0; i < N; i++) {
         array[i] = malloc(3 * sizeof(array[0]));
@@ -139,6 +141,7 @@ double dot_product(double *a, double *b, int D) {
     return result;
 }
 
+// Creates a subset of an array from one given index to another
 double *slice(double *a, int from, int until) {
     int size = (1 + until - from);
     double *array = malloc(size * sizeof(*array));
@@ -148,6 +151,7 @@ double *slice(double *a, int from, int until) {
     return array;
 }
 
+// Function that calculates the potential energy of a given single atom
 double calculate_energy(double **positions, double *position, int N, double M, int index, double DIPOLE_MOMENT,
                         double *DIPOLE_UNIT_VECTOR, double FREQUENCY_Z, double FREQUENCY_TRANSVERSE,
                         double WALL_REPULSION_COEFFICIENT) {
@@ -173,6 +177,7 @@ double calculate_energy(double **positions, double *position, int N, double M, i
     return trapping_potential + (DIPOLE_MOMENT * DIPOLE_MOMENT * dipole_dipole_interaction) + hard_wall_repulsion;
 }
 
+// Function that calculates the total potential energy of a given configuration
 double calculate_total_energy(double **positions, int N, double M, double DIPOLE_MOMENT, double *DIPOLE_UNIT_VECTOR,
                               double FREQUENCY_Z, double FREQUENCY_TRANSVERSE, double WALL_REPULSION_COEFFICIENT) {
     double total_dipole_dipole_interaction = 0;
@@ -204,7 +209,7 @@ void metropolis_hastings(double **positions, int ITERATIONS, int N, double M, in
                          double WALL_REPULSION_COEFFICIENT, int SAMPLING_RATE, int BTN) {
     clock_t begin = clock();
     gsl_rng_env_setup();
-    gsl_rng *r = gsl_rng_alloc(gsl_rng_default);  // generator type
+    gsl_rng *r = gsl_rng_alloc(gsl_rng_default);  // Generator type
 
     int accepted = 0;
     double trial_positions[3], energy_difference, energy_previous;
@@ -213,6 +218,11 @@ void metropolis_hastings(double **positions, int ITERATIONS, int N, double M, in
     Double3D positions_saved = {ITERATIONS / SAMPLING_RATE, N, 3};
     positions_saved.data =
         malloc(positions_saved.m * positions_saved.n * positions_saved.l * sizeof(*positions_saved.data));
+    /* Main code of the Metropolis-Hasting algorithm. The previous energy is calculated then trial positions
+    are generated for index particle, the difference in energy between the previous energy and the energy
+    with the trial positions is calculated and if the energy different is less than or equal to 0 the trial
+    move is accepted. If the energy difference is greater than or equal to a uniform randomly generated
+    number between 0 and 1 then the trial move is also accepted, otherwise the move is rejected */
     for (int i = 0; i < ITERATIONS; i++) {
         for (int index = 0; index < N; index++) {
             energy_previous =
@@ -236,6 +246,8 @@ void metropolis_hastings(double **positions, int ITERATIONS, int N, double M, in
                     positions[index][k] = trial_positions[k];
                 }
             }
+            /* Every SAMPLING_RATE iteration the positions of every atom are saved and
+            the total energy of the configuration is calculated then saved */
             if (i % SAMPLING_RATE == 0) {
                 energies_saved[i / SAMPLING_RATE] =
                     calculate_total_energy(positions, N, M, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR, FREQUENCY_Z,
@@ -249,8 +261,8 @@ void metropolis_hastings(double **positions, int ITERATIONS, int N, double M, in
             }
         }
         clock_t end = clock();
-        double time = (double)(end - begin) / CLOCKS_PER_SEC;
-        progress_bar(((double)i + 1) / (double)ITERATIONS, time);
+        double time_taken = (double)(end - begin) / CLOCKS_PER_SEC;
+        progress_bar(((double)i + 1) / (double)ITERATIONS, time_taken);
     }
     gsl_rng_free(r);
     double percent_accepted = 100 * accepted / (ITERATIONS * N);
@@ -258,10 +270,11 @@ void metropolis_hastings(double **positions, int ITERATIONS, int N, double M, in
     double *mean_energies = reblocking(energies_saved, ITERATIONS / SAMPLING_RATE, BTN);
     free(energies_saved);
     int size_mean_energies = (ITERATIONS / SAMPLING_RATE) / pow(2, BTN);
+    // 500 is chosen so that 500 * SAMPLING_RATE * 2^BTN is the iteration at which equilibration has finished
     double *sliced_mean_energies = slice(mean_energies, 500, size_mean_energies);
-    double *errors = calculate_errors(sliced_mean_energies, size_mean_energies-500, N);
+    double *errors = calculate_errors(sliced_mean_energies, size_mean_energies - 500, N);
     free(sliced_mean_energies);
-    export_1D_array("simulation_error_data.txt", errors, size_mean_energies-500);
+    export_1D_array("simulation_error_data.txt", errors, size_mean_energies - 500);
     free(errors);
     export_1D_array("simulation_energy_data.txt", mean_energies, size_mean_energies);
     free(mean_energies);
@@ -269,6 +282,8 @@ void metropolis_hastings(double **positions, int ITERATIONS, int N, double M, in
     free(positions_saved.data);
 }
 
+/* Function that calculates the mean of adjacent energies,
+then the mean of those mean energies and so on for a specified number of times */
 double *reblocking(double *energies_saved, int size, int BTN) {
     double *array = malloc(size * sizeof(*array));
     double *temp_array = malloc(0.5 * size * sizeof(*temp_array));
@@ -287,6 +302,7 @@ double *reblocking(double *energies_saved, int size, int BTN) {
     return array;
 }
 
+// Function that calculates errors in mean energies for each subset of mean energies
 double *calculate_errors(double *mean_energies, int size, int N) {
     double *array = malloc(size * sizeof(*array));
 
@@ -324,12 +340,12 @@ void export_1D_array(char *filename, double *array, int size) {
     fclose(fp);
 }
 
-void progress_bar(double progress, double time) {
-    int barWidth = 70;
-    int pos = barWidth * progress;
+void progress_bar(double progress, double time_taken) {
+    int bar_width = 70;
+    int pos = bar_width * progress;
 
     printf("\r|");
-    for (int i = 0; i < barWidth; i++) {
+    for (int i = 0; i < bar_width; i++) {
         if (i < pos) {
             printf("█");
         } else if (i == pos) {
@@ -338,8 +354,8 @@ void progress_bar(double progress, double time) {
             printf("-");
         }
     }
-    if (progress == 1.0) {
-        printf("| %.2f %% Total time taken: %.2fs", progress * 100.0, time);
+    if (progress == 1.0) {  // If complete show time taken, otherwise don't
+        printf("| %.2f %% Total time taken: %.2fs", progress * 100.0, time_taken);
         fflush(stdout);
     } else {
         printf("| %.2f %%", progress * 100.0);
