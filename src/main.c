@@ -16,6 +16,7 @@ double **position_random_generation(int N, double max);
 double sum(double *a, int D);
 double magnitude(double *a, int D);
 double dot_product(double *a, double *b, int D);
+double *slice(double *a, int from, int until);
 double calculate_energy(double **positions, double *position, int N, double M, int index, double DIPOLE_MOMENT,
                         double *DIPOLE_UNIT_VECTOR, double FREQUENCY_Z, double FREQUENCY_TRANSVERSE,
                         double WALL_REPULSION_COEFFICIENT);
@@ -25,8 +26,9 @@ void metropolis_hastings(double **positions, int ITERATIONS, int N, double M, in
                          double *DIPOLE_UNIT_VECTOR, double FREQUENCY_Z, double FREQUENCY_TRANSVERSE,
                          double WALL_REPULSION_COEFFICIENT, int SAMPLING_RATE, int BTN);
 double *reblocking(double *energies_saved, int size, int BTN);
+double *calculate_errors(double *mean_energies, int size, int N);
 void export_positions(Double3D *positions_saved);
-void export_energies(double *mean_energies, int size);
+void export_1D_array(char *filename, double *array, int size);
 void progress_bar(double progress, double time);
 
 int main(int argc, char **argv) {
@@ -137,6 +139,15 @@ double dot_product(double *a, double *b, int D) {
     return result;
 }
 
+double *slice(double *a, int from, int until) {
+    int size = (1 + until - from);
+    double *array = malloc(size * sizeof(*array));
+    for (int i = 0; i < size; i++) {
+        array[i] = a[from + i];
+    }
+    return array;
+}
+
 double calculate_energy(double **positions, double *position, int N, double M, int index, double DIPOLE_MOMENT,
                         double *DIPOLE_UNIT_VECTOR, double FREQUENCY_Z, double FREQUENCY_TRANSVERSE,
                         double WALL_REPULSION_COEFFICIENT) {
@@ -192,7 +203,6 @@ void metropolis_hastings(double **positions, int ITERATIONS, int N, double M, in
                          double *DIPOLE_UNIT_VECTOR, double FREQUENCY_Z, double FREQUENCY_TRANSVERSE,
                          double WALL_REPULSION_COEFFICIENT, int SAMPLING_RATE, int BTN) {
     clock_t begin = clock();
-
     gsl_rng_env_setup();
     gsl_rng *r = gsl_rng_alloc(gsl_rng_default);  // generator type
 
@@ -247,7 +257,13 @@ void metropolis_hastings(double **positions, int ITERATIONS, int N, double M, in
     printf("\n\npercent accepted: %.2f%%\nnumber accepted: %d\n\n\n", percent_accepted, accepted);
     double *mean_energies = reblocking(energies_saved, ITERATIONS / SAMPLING_RATE, BTN);
     free(energies_saved);
-    export_energies(mean_energies, (ITERATIONS / SAMPLING_RATE) / pow(2, BTN));
+    int size_mean_energies = (ITERATIONS / SAMPLING_RATE) / pow(2, BTN);
+    double *sliced_mean_energies = slice(mean_energies, 500, size_mean_energies);
+    double *errors = calculate_errors(sliced_mean_energies, size_mean_energies-500, N);
+    free(sliced_mean_energies);
+    export_1D_array("simulation_error_data.txt", errors, size_mean_energies-500);
+    free(errors);
+    export_1D_array("simulation_energy_data.txt", mean_energies, size_mean_energies);
     free(mean_energies);
     export_positions(&positions_saved);
     free(positions_saved.data);
@@ -271,6 +287,22 @@ double *reblocking(double *energies_saved, int size, int BTN) {
     return array;
 }
 
+double *calculate_errors(double *mean_energies, int size, int N) {
+    double *array = malloc(size * sizeof(*array));
+
+    for (int i = 0; i < size; i++) {
+        array[i] = 0;
+        double *total = slice(mean_energies, 0, i);
+        double mean = sum(total, i) / (i + 1);
+        free(total);
+        for (int j = 0; j <= i; j++) {
+            array[i] += (mean_energies[i] - mean) * (mean_energies[i] - mean);
+        }
+        array[i] = sqrt(array[i] / (i + 1)) / N;
+    }
+    return array;
+}
+
 void export_positions(Double3D *positions_saved) {
     FILE *fp = fopen("simulation_position_data.txt", "w");
     for (int i = 0; i < positions_saved->m; i++) {
@@ -284,19 +316,19 @@ void export_positions(Double3D *positions_saved) {
     fclose(fp);
 }
 
-void export_energies(double *mean_energies, int size) {
-    FILE *fp = fopen("simulation_energy_data.txt", "w");
+void export_1D_array(char *filename, double *array, int size) {
+    FILE *fp = fopen(filename, "w");
     for (int i = 0; i < size; i++) {
-        fprintf(fp, "%f\n", mean_energies[i]);
+        fprintf(fp, "%f\n", array[i]);
     }
     fclose(fp);
 }
 
 void progress_bar(double progress, double time) {
     int barWidth = 70;
+    int pos = barWidth * progress;
 
     printf("\r|");
-    int pos = barWidth * progress;
     for (int i = 0; i < barWidth; i++) {
         if (i < pos) {
             printf("█");
