@@ -1,14 +1,18 @@
 [simulation_properties]
 particles = 50
 repetitions = 40000
-temperature = 300.0 # Temperature in Kelvin
-sigma = 0.2 # Should be a value so that the acceptance rate is 50%
+temperature = 300.0                  # Temperature in Kelvin
+sigma = 0.2                          # Should be a value so that the acceptance rate is 50%
 mass = 1.0
-dipole_moment = 0.01 # in Bohr magnetons, 10 times (Dysprosium magnetic moment) magnetic dipole moment of a hydrogen atom (Bohr magneton)
-dipole_unit_vector = [0.92998110995, 0.34874291623, 0.11624763874] # [8 / sqrt(74), 3 / sqrt(74), 1 / sqrt(74)]
-trapping_frequency_z = 1.0 # in Hz
+dipole_moment = 0.01                 # in Bohr magnetons, 10 times (Dysprosium magnetic moment) magnetic dipole moment of a hydrogen atom (Bohr magneton)
+dipole_unit_vector = [
+    0.92998110995,
+    0.34874291623,
+    0.11624763874,
+]                                    # [8 / sqrt(74), 3 / sqrt(74), 1 / sqrt(74)]
+trapping_frequency_z = 1.0           # in Hz
 trapping_frequency_transverse = 0.01 # in Hz
 hard_wall_repulsion_coefficient = 1.0
 sampling_rate = 5
 blocking_transformation_number = 2
-box_length = 75.0 # in Bohr radii
+box_length = 75.0                    # in Bohr radii
