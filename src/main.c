@@ -11,7 +11,7 @@ typedef struct {
 
 void read_config(int *N, int *ITERATIONS, double *T, double *M, double *LENGTH, double *SIGMA, double *DIPOLE_MOMENT,
                  double *DIPOLE_UNIT_VECTOR, double *FREQUENCY_Z, double *FREQUENCY_TRANSVERSE,
-                 double *WALL_REPULSION_COEFFICIENT, int *SAMPLING_RATE, int *BTN);
+                 double *WALL_REPULSION_COEFFICIENT, int *SAMPLING_RATE, int *BTN, int *CUTOFF);
 double **position_random_generation(int N, double max);
 double sum(double *a, int D);
 double magnitude(double *a, int D);
@@ -22,22 +22,22 @@ double calculate_energy(double **positions, double *position, int N, double M, i
                         double WALL_REPULSION_COEFFICIENT);
 double calculate_total_energy(double **positions, int N, double M, double DIPOLE_MOMENT, double *DIPOLE_UNIT_VECTOR,
                               double FREQUENCY_Z, double FREQUENCY_TRANSVERSE, double WALL_REPULSION_COEFFICIENT);
-void metropolis_hastings(double **positions, int ITERATIONS, int N, double M, int T, double SIGMA, double DIPOLE_MOMENT,
-                         double *DIPOLE_UNIT_VECTOR, double FREQUENCY_Z, double FREQUENCY_TRANSVERSE,
-                         double WALL_REPULSION_COEFFICIENT, int SAMPLING_RATE, int BTN);
+double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M, int T, double SIGMA,
+                            double DIPOLE_MOMENT, double *DIPOLE_UNIT_VECTOR, double FREQUENCY_Z,
+                            double FREQUENCY_TRANSVERSE, double WALL_REPULSION_COEFFICIENT, int SAMPLING_RATE);
 double *reblocking(double *energies_saved, int size, int BTN);
-double *calculate_errors(double *mean_energies, int size, int N);
+double calculate_error(double *mean_energies, int size, int N);
 void export_positions(Double3D *positions_saved);
-void export_1D_array(char *filename, double *array, int size);
+void export_1D_array(char *file_name, double *array, int size);
 void progress_bar(double progress, double time_taken);
 
 int main(int argc, char **argv) {
     // Declare then read constants from a config file and print them out
-    int N, ITERATIONS, SAMPLING_RATE, BTN;
+    int N, ITERATIONS, SAMPLING_RATE, BTN, CUTOFF;
     double T, M, LENGTH, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR[3], FREQUENCY_Z, FREQUENCY_TRANSVERSE,
         WALL_REPULSION_COEFFICIENT;
     read_config(&N, &ITERATIONS, &T, &M, &LENGTH, &SIGMA, &DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR, &FREQUENCY_Z,
-                &FREQUENCY_TRANSVERSE, &WALL_REPULSION_COEFFICIENT, &SAMPLING_RATE, &BTN);
+                &FREQUENCY_TRANSVERSE, &WALL_REPULSION_COEFFICIENT, &SAMPLING_RATE, &BTN, &CUTOFF);
     printf(
         "Current variables set in config:\nN: %d\niterations: %d\ntemperature: %f\nmass: %f\nlength: %f\nsigma: "
         "%e\ndipole moment magnitude: %f\ndipole unit vector: %f %f %f\nfrequency_z %f\nfrequency_transverse %f\nhard "
@@ -47,13 +47,41 @@ int main(int argc, char **argv) {
 
     // Run simulation using values read from config file then calculate total energy of the last configuration
     double **positions = position_random_generation(N, LENGTH);
-    metropolis_hastings(positions, ITERATIONS, N, M, T, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR, FREQUENCY_Z,
-                        FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT, SAMPLING_RATE, BTN);
+    double *energies_saved =
+        metropolis_hastings(positions, ITERATIONS, N, M, T, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR, FREQUENCY_Z,
+                            FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT, SAMPLING_RATE);
     double total_energy = calculate_total_energy(positions, N, M, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR, FREQUENCY_Z,
                                                  FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT);
 
     printf("Total energy: %e\n", total_energy);
 
+    int MAX_BTN = 4;  // ((ITERATIONS / SAMPLING_RATE) - CUTOFF) / 2^MAX_BTN must be an integer
+    double *sliced_energies_saved = slice(energies_saved, CUTOFF, ITERATIONS / SAMPLING_RATE);
+    free(energies_saved);
+
+    // Calculates the standard errors post equilibration (decided by value of CUTOFF) for different BTN
+    double *errors = malloc(MAX_BTN * sizeof(*errors));
+    double *mean_energies = reblocking(sliced_energies_saved, (ITERATIONS / SAMPLING_RATE) - CUTOFF, 1);
+    for (int i = 1; i <= MAX_BTN; i++) {
+        int size_mean_energies = ((ITERATIONS / SAMPLING_RATE) - CUTOFF) / pow(2, i);
+        errors[i - 1] = calculate_error(mean_energies, size_mean_energies, N);
+        if (i == MAX_BTN) {
+            free(mean_energies);
+            break;
+        }
+        double *temp_array = reblocking(mean_energies, size_mean_energies, 1);
+        mean_energies = realloc(mean_energies, 0.5 * size_mean_energies * sizeof(*mean_energies));
+        for (int j = 0; j < 0.5 * size_mean_energies; j++) {
+            mean_energies[j] = temp_array[j];
+        }
+        free(temp_array);
+    }
+
+    double *reblocked_energies = reblocking(sliced_energies_saved, (ITERATIONS / SAMPLING_RATE) - CUTOFF, BTN);
+    free(sliced_energies_saved);
+    export_1D_array("simulation_energy_data.txt", reblocked_energies,
+                    ((ITERATIONS / SAMPLING_RATE) - CUTOFF) / pow(2, BTN));
+    export_1D_array("simulation_error_data.txt", errors, MAX_BTN);
     for (int i = 0; i < N; i++) {
         free(positions[i]);
     }
@@ -63,7 +91,7 @@ int main(int argc, char **argv) {
 
 void read_config(int *N, int *ITERATIONS, double *T, double *M, double *LENGTH, double *SIGMA, double *DIPOLE_MOMENT,
                  double *DIPOLE_UNIT_VECTOR, double *FREQUENCY_Z, double *FREQUENCY_TRANSVERSE,
-                 double *WALL_REPULSION_COEFFICIENT, int *SAMPLING_RATE, int *BTN) {
+                 double *WALL_REPULSION_COEFFICIENT, int *SAMPLING_RATE, int *BTN, int *CUTOFF) {
     FILE *fp = fopen("config.toml", "r");  // Read and parse toml file
     char errbuf[200];
     toml_table_t *conf = toml_parse_file(fp, errbuf, sizeof(errbuf));
@@ -98,6 +126,8 @@ void read_config(int *N, int *ITERATIONS, double *T, double *M, double *LENGTH, 
     *SAMPLING_RATE = data_sampling_rate.u.i;
     toml_datum_t blocking_transformation_number = toml_int_in(properties, "blocking_transformation_number");
     *BTN = blocking_transformation_number.u.i;
+    toml_datum_t cutoff = toml_int_in(properties, "cutoff");
+    *CUTOFF = cutoff.u.i;
     toml_free(conf);  // Free memory
 }
 
@@ -143,7 +173,7 @@ double dot_product(double *a, double *b, int D) {
 
 // Creates a subset of an array from one given index to another
 double *slice(double *a, int from, int until) {
-    int size = (1 + until - from);
+    int size = until - from;
     double *array = malloc(size * sizeof(*array));
     for (int i = 0; i < size; i++) {
         array[i] = a[from + i];
@@ -204,9 +234,9 @@ double calculate_total_energy(double **positions, int N, double M, double DIPOLE
            total_hard_wall_repulsion;
 }
 
-void metropolis_hastings(double **positions, int ITERATIONS, int N, double M, int T, double SIGMA, double DIPOLE_MOMENT,
-                         double *DIPOLE_UNIT_VECTOR, double FREQUENCY_Z, double FREQUENCY_TRANSVERSE,
-                         double WALL_REPULSION_COEFFICIENT, int SAMPLING_RATE, int BTN) {
+double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M, int T, double SIGMA,
+                            double DIPOLE_MOMENT, double *DIPOLE_UNIT_VECTOR, double FREQUENCY_Z,
+                            double FREQUENCY_TRANSVERSE, double WALL_REPULSION_COEFFICIENT, int SAMPLING_RATE) {
     clock_t begin = clock();
     gsl_rng_env_setup();
     gsl_rng *r = gsl_rng_alloc(gsl_rng_default);  // Generator type
@@ -265,21 +295,10 @@ void metropolis_hastings(double **positions, int ITERATIONS, int N, double M, in
         progress_bar(((double)i + 1) / (double)ITERATIONS, time_taken);
     }
     gsl_rng_free(r);
-    double percent_accepted = 100 * accepted / (ITERATIONS * N);
-    printf("\n\npercent accepted: %.2f%%\nnumber accepted: %d\n\n\n", percent_accepted, accepted);
-    double *mean_energies = reblocking(energies_saved, ITERATIONS / SAMPLING_RATE, BTN);
-    free(energies_saved);
-    int size_mean_energies = (ITERATIONS / SAMPLING_RATE) / pow(2, BTN);
-    // 500 is chosen so that 500 * SAMPLING_RATE * 2^BTN is the iteration at which equilibration has finished
-    double *sliced_mean_energies = slice(mean_energies, 500, size_mean_energies);
-    double *errors = calculate_errors(sliced_mean_energies, size_mean_energies - 500, N);
-    free(sliced_mean_energies);
-    export_1D_array("simulation_error_data.txt", errors, size_mean_energies - 500);
-    free(errors);
-    export_1D_array("simulation_energy_data.txt", mean_energies, size_mean_energies);
-    free(mean_energies);
     export_positions(&positions_saved);
-    free(positions_saved.data);
+    double percent_accepted = 100 * (double)accepted / (double)(ITERATIONS * N);
+    printf("\n\npercent accepted: %.2f%%\nnumber accepted: %d\n\n\n", percent_accepted, accepted);
+    return energies_saved;
 }
 
 /* Function that calculates the mean of adjacent energies,
@@ -294,6 +313,7 @@ double *reblocking(double *energies_saved, int size, int BTN) {
         for (int j = 0; j < size / pow(2, i); j++) {
             temp_array[j] = 0.5 * (array[2 * j] + array[2 * j + 1]);
         }
+        array = realloc(array, size / pow(2, i) * sizeof(*array));
         for (int j = 0; j < size / pow(2, i); j++) {
             array[j] = temp_array[j];
         }
@@ -302,21 +322,15 @@ double *reblocking(double *energies_saved, int size, int BTN) {
     return array;
 }
 
-// Function that calculates errors in mean energies for each subset of mean energies
-double *calculate_errors(double *mean_energies, int size, int N) {
-    double *array = malloc(size * sizeof(*array));
-
+// Function that calculates error in mean energies for each subset of mean energies
+double calculate_error(double *mean_energies, int size, int N) {
+    double error = 0;
+    double mean = sum(mean_energies, size) / size;
     for (int i = 0; i < size; i++) {
-        array[i] = 0;
-        double *total = slice(mean_energies, 0, i);
-        double mean = sum(total, i) / (i + 1);
-        free(total);
-        for (int j = 0; j <= i; j++) {
-            array[i] += (mean_energies[i] - mean) * (mean_energies[i] - mean);
-        }
-        array[i] = sqrt(array[i] / (i + 1)) / N;
+        error += (mean_energies[i] - mean) * (mean_energies[i] - mean);
     }
-    return array;
+    error = sqrt(error / (size - 1)) / N;
+    return error;
 }
 
 void export_positions(Double3D *positions_saved) {
@@ -330,14 +344,16 @@ void export_positions(Double3D *positions_saved) {
         }
     }
     fclose(fp);
+    free(positions_saved->data);
 }
 
-void export_1D_array(char *filename, double *array, int size) {
-    FILE *fp = fopen(filename, "w");
+void export_1D_array(char *file_name, double *array, int size) {
+    FILE *fp = fopen(file_name, "w");
     for (int i = 0; i < size; i++) {
         fprintf(fp, "%f\n", array[i]);
     }
     fclose(fp);
+    free(array);
 }
 
 void progress_bar(double progress, double time_taken) {
@@ -354,7 +370,7 @@ void progress_bar(double progress, double time_taken) {
             printf("-");
         }
     }
-    if (progress == 1.0) {  // If complete show time taken, otherwise don't
+    if (progress == 1.0) {  // If complete, show time taken, otherwise don't
         printf("| %.2f %% Total time taken: %.2fs", progress * 100.0, time_taken);
         fflush(stdout);
     } else {

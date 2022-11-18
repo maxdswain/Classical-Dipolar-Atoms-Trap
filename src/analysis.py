@@ -22,7 +22,7 @@ SAMPLING_RATE = config["simulation_properties"]["sampling_rate"]
 
 def read_simulation_data() -> tuple[np.ndarray[np.float64], np.ndarray[np.float64], np.ndarray[np.float64]]:
     positions = np.loadtxt("simulation_position_data.txt").reshape(ITERATIONS // SAMPLING_RATE, N, 3)
-    energies = np.loadtxt("simulation_energy_data.txt", skiprows=500)
+    energies = np.loadtxt("simulation_energy_data.txt")
     errors = np.loadtxt("simulation_error_data.txt")
     return positions, energies, errors
 
@@ -67,8 +67,8 @@ def plot_snapshot(positions: np.ndarray[np.float64], iteration: int) -> None:
 
 def plot_error(errors: np.ndarray[np.float64]) -> None:
     _, ax = plt.subplots()
-    ax.plot(np.linspace((1 + 500) * ITERATIONS / (500 + len(errors)), ITERATIONS, len(errors)), errors)
-    ax.set(xlabel="Iterations", ylabel="Error")
+    ax.plot(np.linspace(1, len(errors), len(errors)), errors)
+    ax.set(xlabel="BTN", ylabel="Standard Error")
     plt.show()
 
 
@@ -77,6 +77,5 @@ if __name__ == "__main__":
     distances = np.linalg.norm(positions[-1], axis=1)
 
     plot_error(errors)
-    plot_snapshot(positions, -1)
     plot_energy_histogram(energies)
     plot_positions_iterations(positions, 0)
