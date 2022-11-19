@@ -67,7 +67,7 @@ def plot_snapshot(positions: np.ndarray[np.float64], iteration: int) -> None:
 
 def plot_error(errors: np.ndarray[np.float64]) -> None:
     _, ax = plt.subplots()
-    ax.plot(np.linspace(1, len(errors), len(errors)), errors)
+    ax.plot(np.linspace(1, len(errors), len(errors), dtype="int64"), errors)
     ax.set(xlabel="BTN", ylabel="Standard Error")
     plt.show()
 

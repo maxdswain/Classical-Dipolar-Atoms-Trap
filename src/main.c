@@ -4,15 +4,17 @@
 #include <gsl/gsl_randist.h>
 #include <toml.h>
 
+#define BOLTZMANN 3.167e-6  // Boltzmann constant in Hartree atomic units
+
 typedef struct {
     int m, n, l;
     double *data;
 } Double3D;
 
-void read_config(int *N, int *ITERATIONS, double *T, double *M, double *LENGTH, double *SIGMA, double *DIPOLE_MOMENT,
+void read_config(int *N, int *ITERATIONS, double *T, double *M, double *SIGMA, double *DIPOLE_MOMENT,
                  double *DIPOLE_UNIT_VECTOR, double *FREQUENCY_Z, double *FREQUENCY_TRANSVERSE,
                  double *WALL_REPULSION_COEFFICIENT, int *SAMPLING_RATE, int *BTN, int *CUTOFF);
-double **position_random_generation(int N, double max);
+double **position_random_generation(int N, double T, double M, double FREQUENCY_Z, double FREQUENCY_TRANSVERSE);
 double sum(double *a, int D);
 double magnitude(double *a, int D);
 double dot_product(double *a, double *b, int D);
@@ -34,19 +36,19 @@ void progress_bar(double progress, double time_taken);
 int main(int argc, char **argv) {
     // Declare then read constants from a config file and print them out
     int N, ITERATIONS, SAMPLING_RATE, BTN, CUTOFF;
-    double T, M, LENGTH, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR[3], FREQUENCY_Z, FREQUENCY_TRANSVERSE,
+    double T, M, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR[3], FREQUENCY_Z, FREQUENCY_TRANSVERSE,
         WALL_REPULSION_COEFFICIENT;
-    read_config(&N, &ITERATIONS, &T, &M, &LENGTH, &SIGMA, &DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR, &FREQUENCY_Z,
+    read_config(&N, &ITERATIONS, &T, &M, &SIGMA, &DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR, &FREQUENCY_Z,
                 &FREQUENCY_TRANSVERSE, &WALL_REPULSION_COEFFICIENT, &SAMPLING_RATE, &BTN, &CUTOFF);
     printf(
-        "Current variables set in config:\nN: %d\niterations: %d\ntemperature: %f\nmass: %f\nlength: %f\nsigma: "
-        "%e\ndipole moment magnitude: %f\ndipole unit vector: %f %f %f\nfrequency_z %f\nfrequency_transverse %f\nhard "
-        "wall repulsion coefficient %f\n\n",
-        N, ITERATIONS, T, M, LENGTH, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR[0], DIPOLE_UNIT_VECTOR[1],
-        DIPOLE_UNIT_VECTOR[2], FREQUENCY_Z, FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT);
+        "Current variables set in config:\nN: %d\niterations: %d\ntemperature: %f\nmass: %f\nsigma: "
+        "%e\ndipole moment magnitude: %f\ndipole unit vector: %f %f %f\nfrequency_z: %f\nfrequency_transverse: "
+        "%f\nhard wall repulsion coefficient: %f\ncutoff: %d\n\n",
+        N, ITERATIONS, T, M, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR[0], DIPOLE_UNIT_VECTOR[1], DIPOLE_UNIT_VECTOR[2],
+        FREQUENCY_Z, FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT, CUTOFF);
 
     // Run simulation using values read from config file then calculate total energy of the last configuration
-    double **positions = position_random_generation(N, LENGTH);
+    double **positions = position_random_generation(N, T, M, FREQUENCY_Z, FREQUENCY_TRANSVERSE);
     double *energies_saved =
         metropolis_hastings(positions, ITERATIONS, N, M, T, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR, FREQUENCY_Z,
                             FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT, SAMPLING_RATE);
@@ -55,7 +57,8 @@ int main(int argc, char **argv) {
 
     printf("Total energy: %e\n", total_energy);
 
-    int MAX_BTN = 4;  // ((ITERATIONS / SAMPLING_RATE) - CUTOFF) / 2^MAX_BTN must be an integer
+    int MAX_BTN = 2;  // ((ITERATIONS / SAMPLING_RATE) - CUTOFF) / 2^MAX_BTN must be an integer
+    while (((ITERATIONS / SAMPLING_RATE) - CUTOFF) % (int)pow(2, MAX_BTN + 1) == 0) MAX_BTN++;
     double *sliced_energies_saved = slice(energies_saved, CUTOFF, ITERATIONS / SAMPLING_RATE);
     free(energies_saved);
 
@@ -89,7 +92,7 @@ int main(int argc, char **argv) {
     return 0;
 }
 
-void read_config(int *N, int *ITERATIONS, double *T, double *M, double *LENGTH, double *SIGMA, double *DIPOLE_MOMENT,
+void read_config(int *N, int *ITERATIONS, double *T, double *M, double *SIGMA, double *DIPOLE_MOMENT,
                  double *DIPOLE_UNIT_VECTOR, double *FREQUENCY_Z, double *FREQUENCY_TRANSVERSE,
                  double *WALL_REPULSION_COEFFICIENT, int *SAMPLING_RATE, int *BTN, int *CUTOFF) {
     FILE *fp = fopen("config.toml", "r");  // Read and parse toml file
@@ -105,8 +108,6 @@ void read_config(int *N, int *ITERATIONS, double *T, double *M, double *LENGTH, 
     *T = temperature.u.d;
     toml_datum_t mass = toml_double_in(properties, "mass");
     *M = mass.u.d;
-    toml_datum_t box_length = toml_double_in(properties, "box_length");
-    *LENGTH = box_length.u.d;
     toml_datum_t trial_sigma = toml_double_in(properties, "sigma");
     *SIGMA = trial_sigma.u.d;
     toml_datum_t dipole_moment_magnitude = toml_double_in(properties, "dipole_moment");
@@ -131,17 +132,19 @@ void read_config(int *N, int *ITERATIONS, double *T, double *M, double *LENGTH, 
     toml_free(conf);  // Free memory
 }
 
-double **position_random_generation(int N, double max) {
+double **position_random_generation(int N, double T, double M, double FREQUENCY_Z, double FREQUENCY_TRANSVERSE) {
     gsl_rng_env_setup();
     gsl_rng *r = gsl_rng_alloc(gsl_rng_default);  // Generator type
 
     // Randomly generate N x 3 array from uniform distribution
     double **array = malloc(N * sizeof(*array));
+    const double r_xy = sqrt(6 * BOLTZMANN * T / (M * FREQUENCY_TRANSVERSE * FREQUENCY_TRANSVERSE));
+    const double r_z = sqrt(6 * BOLTZMANN * T / (M * FREQUENCY_Z * FREQUENCY_Z));
     for (int i = 0; i < N; i++) {
         array[i] = malloc(3 * sizeof(array[0]));
-        for (int j = 0; j < 3; j++) {
-            array[i][j] = gsl_rng_uniform_int(r, max);
-        }
+        array[i][0] = gsl_ran_flat(r, -r_xy, r_xy);
+        array[i][1] = gsl_ran_flat(r, -r_xy, r_xy);
+        array[i][2] = gsl_ran_flat(r, -r_z, r_z);
     }
     gsl_rng_free(r);
     return array;
@@ -243,7 +246,6 @@ double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M,
 
     int accepted = 0;
     double trial_positions[3], energy_difference, energy_previous;
-    const double kB = 3.167e-6;  // Boltzmann constant in Hartree atomic units
     double *energies_saved = malloc(ITERATIONS / SAMPLING_RATE * sizeof(*energies_saved));
     Double3D positions_saved = {ITERATIONS / SAMPLING_RATE, N, 3};
     positions_saved.data =
@@ -270,7 +272,7 @@ double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M,
                 for (int k = 0; k < 3; k++) {
                     positions[index][k] = trial_positions[k];
                 }
-            } else if (gsl_rng_uniform(r) <= exp(-energy_difference / (kB * T))) {
+            } else if (gsl_rng_uniform(r) <= exp(-energy_difference / (BOLTZMANN * T))) {
                 accepted++;
                 for (int k = 0; k < 3; k++) {
                     positions[index][k] = trial_positions[k];
@@ -329,8 +331,7 @@ double calculate_error(double *mean_energies, int size, int N) {
     for (int i = 0; i < size; i++) {
         error += (mean_energies[i] - mean) * (mean_energies[i] - mean);
     }
-    error = sqrt(error / (size - 1)) / N;
-    return error;
+    return sqrt(error / (size - 1)) / N;
 }
 
 void export_positions(Double3D *positions_saved) {
