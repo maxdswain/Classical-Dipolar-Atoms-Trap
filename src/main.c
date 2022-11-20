@@ -1,4 +1,5 @@
 #include <math.h>
+#include <string.h>
 #include <time.h>
 
 #include <gsl/gsl_randist.h>
@@ -52,10 +53,8 @@ int main(int argc, char **argv) {
     double *energies_saved =
         metropolis_hastings(positions, ITERATIONS, N, M, T, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR, FREQUENCY_Z,
                             FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT, SAMPLING_RATE);
-    double total_energy = calculate_total_energy(positions, N, M, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR, FREQUENCY_Z,
-                                                 FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT);
 
-    printf("Total energy: %e\n", total_energy);
+    printf("Energy of last sampled configuration: %e\n", energies_saved[ITERATIONS / SAMPLING_RATE - 1]);
 
     int MAX_BTN = 2;  // ((ITERATIONS / SAMPLING_RATE) - CUTOFF) / 2^MAX_BTN must be an integer
     while (((ITERATIONS / SAMPLING_RATE) - CUTOFF) % (int)pow(2, MAX_BTN + 1) == 0) MAX_BTN++;
@@ -65,20 +64,17 @@ int main(int argc, char **argv) {
     // Calculates the standard errors post equilibration (decided by value of CUTOFF) for different BTN
     double *errors = malloc(MAX_BTN * sizeof(*errors));
     double *mean_energies = reblocking(sliced_energies_saved, (ITERATIONS / SAMPLING_RATE) - CUTOFF, 1);
-    for (int i = 1; i <= MAX_BTN; i++) {
-        int size_mean_energies = ((ITERATIONS / SAMPLING_RATE) - CUTOFF) / pow(2, i);
-        errors[i - 1] = calculate_error(mean_energies, size_mean_energies, N);
-        if (i == MAX_BTN) {
-            free(mean_energies);
-            break;
-        }
+    int size_mean_energies = 0.5 * ((ITERATIONS / SAMPLING_RATE) - CUTOFF);
+    errors[0] = calculate_error(mean_energies, size_mean_energies, N);
+    for (int i = 1; i < MAX_BTN; i++) {
         double *temp_array = reblocking(mean_energies, size_mean_energies, 1);
-        mean_energies = realloc(mean_energies, 0.5 * size_mean_energies * sizeof(*mean_energies));
-        for (int j = 0; j < 0.5 * size_mean_energies; j++) {
-            mean_energies[j] = temp_array[j];
-        }
+        size_mean_energies /= 2;
+        mean_energies = realloc(mean_energies, size_mean_energies * sizeof(*mean_energies));
+        memcpy(mean_energies, temp_array, size_mean_energies * sizeof(*temp_array));
         free(temp_array);
+        errors[i] = calculate_error(mean_energies, size_mean_energies, N);
     }
+    free(mean_energies);
 
     double *reblocked_energies = reblocking(sliced_energies_saved, (ITERATIONS / SAMPLING_RATE) - CUTOFF, BTN);
     free(sliced_energies_saved);
@@ -137,11 +133,11 @@ double **position_random_generation(int N, double T, double M, double FREQUENCY_
     gsl_rng *r = gsl_rng_alloc(gsl_rng_default);  // Generator type
 
     // Randomly generate N x 3 array from uniform distribution
-    double **array = malloc(N * sizeof(*array));
+    double **array = malloc(N * sizeof(**array));
     const double r_xy = sqrt(6 * BOLTZMANN * T / (M * FREQUENCY_TRANSVERSE * FREQUENCY_TRANSVERSE));
     const double r_z = sqrt(6 * BOLTZMANN * T / (M * FREQUENCY_Z * FREQUENCY_Z));
     for (int i = 0; i < N; i++) {
-        array[i] = malloc(3 * sizeof(array[0]));
+        array[i] = malloc(3 * sizeof(*array));
         array[i][0] = gsl_ran_flat(r, -r_xy, r_xy);
         array[i][1] = gsl_ran_flat(r, -r_xy, r_xy);
         array[i][2] = gsl_ran_flat(r, -r_z, r_z);
@@ -307,20 +303,13 @@ double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M,
 then the mean of those mean energies and so on for a specified number of times */
 double *reblocking(double *energies_saved, int size, int BTN) {
     double *array = malloc(size * sizeof(*array));
-    double *temp_array = malloc(0.5 * size * sizeof(*temp_array));
-    for (int i = 0; i < size; i++) {
-        array[i] = energies_saved[i];
-    }
+    memcpy(array, energies_saved, size * sizeof(*energies_saved));
     for (int i = 1; i <= BTN; i++) {
         for (int j = 0; j < size / pow(2, i); j++) {
-            temp_array[j] = 0.5 * (array[2 * j] + array[2 * j + 1]);
+            array[j] = 0.5 * (array[2 * j] + array[2 * j + 1]);
         }
         array = realloc(array, size / pow(2, i) * sizeof(*array));
-        for (int j = 0; j < size / pow(2, i); j++) {
-            array[j] = temp_array[j];
-        }
     }
-    free(temp_array);
     return array;
 }
 
@@ -373,9 +362,8 @@ void progress_bar(double progress, double time_taken) {
     }
     if (progress == 1.0) {  // If complete, show time taken, otherwise don't
         printf("| %.2f %% Total time taken: %.2fs", progress * 100.0, time_taken);
-        fflush(stdout);
     } else {
         printf("| %.2f %%", progress * 100.0);
-        fflush(stdout);
     }
+    fflush(stdout);
 }
