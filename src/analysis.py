@@ -18,6 +18,7 @@ N = config["simulation_properties"]["particles"]
 ITERATIONS = config["simulation_properties"]["repetitions"]
 T = config["simulation_properties"]["temperature"]
 SAMPLING_RATE = config["simulation_properties"]["sampling_rate"]
+CUTOFF = config["simulation_properties"]["cutoff"]
 
 
 def read_simulation_data() -> tuple[np.ndarray[np.float64], np.ndarray[np.float64], np.ndarray[np.float64]]:
@@ -58,6 +59,13 @@ def plot_positions_iterations(positions: np.ndarray[np.float64], component: int)
     plt.show()
 
 
+def plot_energies_iterations(energies: np.ndarray[np.float64]) -> None:
+    _, ax = plt.subplots()
+    ax.plot(np.linspace(CUTOFF * SAMPLING_RATE, ITERATIONS, len(energies)), energies)
+    ax.set(xlabel="Iterations", ylabel="Mean energies")
+    plt.show()
+
+
 def plot_snapshot(positions: np.ndarray[np.float64], iteration: int) -> None:
     _, ax = plt.subplots()
     ax.scatter(positions[iteration, :, 0], positions[iteration, :, 1], c="black")
@@ -78,4 +86,5 @@ if __name__ == "__main__":
 
     plot_error(errors)
     plot_energy_histogram(energies)
+    plot_energies_iterations(energies)
     plot_positions_iterations(positions, 0)
