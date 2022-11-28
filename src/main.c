@@ -28,6 +28,7 @@ double calculate_total_energy(double **positions, int N, double M, double DIPOLE
 double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M, int T, double SIGMA,
                             double DIPOLE_MOMENT, double *DIPOLE_UNIT_VECTOR, double FREQUENCY_Z,
                             double FREQUENCY_TRANSVERSE, double WALL_REPULSION_COEFFICIENT, int SAMPLING_RATE);
+double **read_basins(int *size);
 double *reblocking(double *energies_saved, int size, int BTN);
 double calculate_error(double *mean_energies, int size, int N);
 void export_positions(Double3D *positions_saved);
@@ -258,8 +259,12 @@ double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M,
             energy_previous =
                 calculate_energy(positions, positions[index], N, M, index, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR,
                                  FREQUENCY_Z, FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT);
-            for (int j = 0; j < 3; j++) {
-                trial_positions[j] = positions[index][j] + gsl_ran_gaussian_ziggurat(r, SIGMA);
+            if (gsl_rng_uniform_int(r, 20)) {
+                for (int j = 0; j < 3; j++) {
+                    trial_positions[j] = positions[index][j] + gsl_ran_gaussian_ziggurat(r, SIGMA);
+                }
+            } else {
+                // basin-hopping move
             }
             energy_difference =
                 calculate_energy(positions, trial_positions, N, M, index, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR,
@@ -299,6 +304,20 @@ double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M,
     double percent_accepted = 100 * (double)accepted / (double)(ITERATIONS * N);
     printf("\n\npercent accepted: %.2f%%\nnumber accepted: %d\n\n\n", percent_accepted, accepted);
     return energies_saved;
+}
+
+double **read_basins(int *size) {
+    FILE *fp = fopen("minima_basins.txt", "r");
+    fscanf(fp, "%d", size);
+    double **basins = malloc(*size * sizeof(**basins));
+    for (int i = 0; i < *size; i++) {
+        basins[i] = malloc(3 * sizeof(*basins));
+        for (int j = 0; j < 3; j++) {
+            fscanf(fp, "%lf", &basins[i][j]);
+        }
+    }
+    fclose(fp);
+    return basins;
 }
 
 /* Function that calculates the mean of adjacent energies,
