@@ -5,7 +5,7 @@
 #include <gsl/gsl_randist.h>
 #include <toml.h>
 
-#define BOLTZMANN 3.167e-6  // Boltzmann constant in Hartree atomic units
+#define BOLTZMANN 2617360049  // Boltzmann constant in defined systems of units based on values in config
 
 typedef struct {
     int m, n, l;
@@ -39,6 +39,7 @@ int main(int argc, char **argv) {
     int N, ITERATIONS, SAMPLING_RATE, BTN, CUTOFF;
     double T, M, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR[3], FREQUENCY_Z, FREQUENCY_TRANSVERSE,
         WALL_REPULSION_COEFFICIENT;
+
     read_config(&N, &ITERATIONS, &T, &M, &SIGMA, &DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR, &FREQUENCY_Z,
                 &FREQUENCY_TRANSVERSE, &WALL_REPULSION_COEFFICIENT, &SAMPLING_RATE, &BTN, &CUTOFF);
     printf(
@@ -85,7 +86,6 @@ int main(int argc, char **argv) {
         free(positions[i]);
     }
     free(positions);
-    return 0;
 }
 
 void read_config(int *N, int *ITERATIONS, double *T, double *M, double *SIGMA, double *DIPOLE_MOMENT,
@@ -136,6 +136,7 @@ double **position_random_generation(int N, double T, double M, double FREQUENCY_
     double **array = malloc(N * sizeof(**array));
     const double r_xy = sqrt(6 * BOLTZMANN * T / (M * FREQUENCY_TRANSVERSE * FREQUENCY_TRANSVERSE));
     const double r_z = sqrt(6 * BOLTZMANN * T / (M * FREQUENCY_Z * FREQUENCY_Z));
+
     for (int i = 0; i < N; i++) {
         array[i] = malloc(3 * sizeof(*array));
         array[i][0] = gsl_ran_flat(r, -r_xy, r_xy);
@@ -147,7 +148,8 @@ double **position_random_generation(int N, double T, double M, double FREQUENCY_
 }
 
 double sum(double *a, int D) {
-    double result = 0.0;
+    double result = 0;
+
     for (int i = 0; i < D; i++) {
         result += a[i];
     }
@@ -155,7 +157,8 @@ double sum(double *a, int D) {
 }
 
 double magnitude(double *a, int D) {
-    double result = 0.0;
+    double result = 0;
+
     for (int i = 0; i < D; i++) {
         result += a[i] * a[i];
     }
@@ -163,7 +166,8 @@ double magnitude(double *a, int D) {
 }
 
 double dot_product(double *a, double *b, int D) {
-    double result = 0.0;
+    double result = 0;
+
     for (int i = 0; i < D; i++) {
         result += a[i] * b[i];
     }
@@ -174,6 +178,7 @@ double dot_product(double *a, double *b, int D) {
 double *slice(double *a, int from, int until) {
     int size = until - from;
     double *array = malloc(size * sizeof(*array));
+
     for (int i = 0; i < size; i++) {
         array[i] = a[from + i];
     }
@@ -188,8 +193,7 @@ double calculate_energy(double **positions, double *position, int N, double M, i
         0.5 * M *
         (FREQUENCY_TRANSVERSE * FREQUENCY_TRANSVERSE * (position[0] * position[0] + position[1] * position[1]) +
          FREQUENCY_Z * FREQUENCY_Z * position[2] * position[2]);
-    double dipole_dipole_interaction = 0;
-    double hard_wall_repulsion = 0;
+    double dipole_dipole_interaction = 0, hard_wall_repulsion = 0;
     double displacement[3], distance, vector_term;
 
     for (int i = 0; i < N; i++) {
@@ -209,9 +213,7 @@ double calculate_energy(double **positions, double *position, int N, double M, i
 // Function that calculates the total potential energy of a given configuration
 double calculate_total_energy(double **positions, int N, double M, double DIPOLE_MOMENT, double *DIPOLE_UNIT_VECTOR,
                               double FREQUENCY_Z, double FREQUENCY_TRANSVERSE, double WALL_REPULSION_COEFFICIENT) {
-    double total_dipole_dipole_interaction = 0;
-    double total_trapping_potential = 0;
-    double total_hard_wall_repulsion = 0;
+    double total_dipole_dipole_interaction = 0, total_trapping_potential = 0, total_hard_wall_repulsion = 0;
     double displacement[3], distance, vector_term;
 
     for (int i = 0; i < N; i++) {
@@ -303,6 +305,7 @@ double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M,
 then the mean of those mean energies and so on for a specified number of times */
 double *reblocking(double *energies_saved, int size, int BTN) {
     double *array = malloc(size * sizeof(*array));
+
     memcpy(array, energies_saved, size * sizeof(*energies_saved));
     for (int i = 1; i <= BTN; i++) {
         for (int j = 0; j < size / pow(2, i); j++) {
@@ -317,6 +320,7 @@ double *reblocking(double *energies_saved, int size, int BTN) {
 double calculate_error(double *mean_energies, int size, int N) {
     double error = 0;
     double mean = sum(mean_energies, size) / size;
+
     for (int i = 0; i < size; i++) {
         error += (mean_energies[i] - mean) * (mean_energies[i] - mean);
     }

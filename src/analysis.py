@@ -18,6 +18,7 @@ N = config["simulation_properties"]["particles"]
 ITERATIONS = config["simulation_properties"]["repetitions"]
 T = config["simulation_properties"]["temperature"]
 SAMPLING_RATE = config["simulation_properties"]["sampling_rate"]
+BTN = config["simulation_properties"]["blocking_transformation_number"]
 CUTOFF = config["simulation_properties"]["cutoff"]
 
 
@@ -29,7 +30,7 @@ def read_simulation_data() -> tuple[np.ndarray[np.float64], np.ndarray[np.float6
 
 
 def boltzmann_distribution(energies: np.ndarray[np.float64]) -> Callable[[float], float]:
-    BOLTZMANN_CONSTANT = 3.167e-6  # Boltzmann constant in Hartree units
+    BOLTZMANN_CONSTANT = 2617360049  # Boltzmann constant in defined systems of units based on values in config
     Z = sum([np.exp(-energy / (BOLTZMANN_CONSTANT * T)) for energy in energies])
     return lambda energy: len(energies) * np.exp(-energy / (BOLTZMANN_CONSTANT * T)) / Z
 
@@ -59,9 +60,11 @@ def plot_positions_iterations(positions: np.ndarray[np.float64], component: int)
     plt.show()
 
 
-def plot_energies_iterations(energies: np.ndarray[np.float64]) -> None:
+def plot_energies_iterations(energies: np.ndarray[np.float64], error: float) -> None:
     _, ax = plt.subplots()
-    ax.plot(np.linspace(CUTOFF * SAMPLING_RATE, ITERATIONS, len(energies)), energies)
+    ax.errorbar(
+        np.linspace(CUTOFF * SAMPLING_RATE, ITERATIONS, len(energies)), energies, yerr=error, ecolor="r", fmt="k"
+    )
     ax.set(xlabel="Iterations", ylabel="Mean energies")
     plt.show()
 
@@ -86,5 +89,5 @@ if __name__ == "__main__":
 
     plot_error(errors)
     plot_energy_histogram(energies)
-    plot_energies_iterations(energies)
+    plot_energies_iterations(energies, errors[BTN - 1])
     plot_positions_iterations(positions, 0)
