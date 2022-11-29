@@ -249,6 +249,25 @@ double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M,
     Double3D positions_saved = {ITERATIONS / SAMPLING_RATE, N, 3};
     positions_saved.data =
         malloc(positions_saved.m * positions_saved.n * positions_saved.l * sizeof(*positions_saved.data));
+
+    int number_of_basins, counter = 0;
+    double **basins = read_basins(&number_of_basins);
+    double **minima_differences = malloc(number_of_basins * number_of_basins * sizeof(**minima_differences));
+    for (int i = 0; i < number_of_basins; i++) {
+        for (int j = 0; j < i; j++) {
+            minima_differences[2 * counter] = malloc(3 * sizeof(*minima_differences));
+            minima_differences[2 * counter + 1] = malloc(3 * sizeof(*minima_differences));
+            for (int k = 0; k < 3; k++) {
+                minima_differences[2 * counter][k] = basins[i][k] - basins[j][k];
+                minima_differences[2 * counter + 1][k] = basins[j][k] - basins[i][k];
+            }
+            counter++;
+        }
+    }
+    for (int i = 0; i < number_of_basins; i++) {
+        free(basins[i]);
+    }
+    free(basins);
     /* Main code of the Metropolis-Hasting algorithm. The previous energy is calculated then trial positions
     are generated for index particle, the difference in energy between the previous energy and the energy
     with the trial positions is calculated and if the energy different is less than or equal to 0 the trial
@@ -264,7 +283,10 @@ double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M,
                     trial_positions[j] = positions[index][j] + gsl_ran_gaussian_ziggurat(r, SIGMA);
                 }
             } else {
-                // basin-hopping move
+                int random_choice = gsl_rng_uniform_int(r, number_of_basins * number_of_basins);
+                for (int j = 0; j < 3; j++) {
+                    trial_positions[j] = positions[index][j] + minima_differences[random_choice][j];
+                }
             }
             energy_difference =
                 calculate_energy(positions, trial_positions, N, M, index, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR,
@@ -301,6 +323,10 @@ double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M,
     }
     gsl_rng_free(r);
     export_positions(&positions_saved);
+    for (int i = 0; i < number_of_basins * number_of_basins; i++) {
+        free(minima_differences[i]);
+    }
+    free(minima_differences);
     double percent_accepted = 100 * (double)accepted / (double)(ITERATIONS * N);
     printf("\n\npercent accepted: %.2f%%\nnumber accepted: %d\n\n\n", percent_accepted, accepted);
     return energies_saved;
