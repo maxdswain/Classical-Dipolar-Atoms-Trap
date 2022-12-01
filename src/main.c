@@ -204,7 +204,7 @@ double calculate_energy(double **positions, double *position, int N, double M, i
             distance = magnitude(displacement, 3);
             vector_term = dot_product(displacement, DIPOLE_UNIT_VECTOR, 3);
             dipole_dipole_interaction += (distance * distance - 3 * vector_term * vector_term) / pow(distance, 5);
-            wall_repulsion += WALL_REPULSION_COEFFICIENT / pow(distance, 6);
+            wall_repulsion += WALL_REPULSION_COEFFICIENT / pow(distance, 12);
         }
     }
     return trapping_potential + (DIPOLE_MOMENT * DIPOLE_MOMENT * dipole_dipole_interaction) + wall_repulsion;
@@ -228,7 +228,7 @@ double calculate_total_energy(double **positions, int N, double M, double DIPOLE
             distance = magnitude(displacement, 3);
             vector_term = dot_product(displacement, DIPOLE_UNIT_VECTOR, 3);
             total_dipole_dipole_interaction += (distance * distance - 3 * vector_term * vector_term) / pow(distance, 5);
-            total_wall_repulsion += WALL_REPULSION_COEFFICIENT / pow(distance, 6);
+            total_wall_repulsion += WALL_REPULSION_COEFFICIENT / pow(distance, 12);
         }
     }
     return total_trapping_potential + (DIPOLE_MOMENT * DIPOLE_MOMENT * total_dipole_dipole_interaction) +
