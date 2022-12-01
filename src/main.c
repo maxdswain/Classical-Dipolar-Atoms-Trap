@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
     printf(
         "Current variables set in config:\nN: %d\niterations: %d\ntemperature: %f\nmass: %f\nsigma: "
         "%e\ndipole moment magnitude: %f\ndipole unit vector: %f %f %f\nfrequency_z: %f\nfrequency_transverse: "
-        "%f\nhard wall repulsion coefficient: %f\ncutoff: %d\n\n",
+        "%f\nwall repulsion coefficient: %f\ncutoff: %d\n\n",
         N, ITERATIONS, T, M, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR[0], DIPOLE_UNIT_VECTOR[1], DIPOLE_UNIT_VECTOR[2],
         FREQUENCY_Z, FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT, CUTOFF);
 
@@ -117,8 +117,8 @@ void read_config(int *N, int *ITERATIONS, double *T, double *M, double *SIGMA, d
     *FREQUENCY_Z = trapping_frequency_z.u.d;
     toml_datum_t trapping_frequency_transverse = toml_double_in(properties, "trapping_frequency_transverse");
     *FREQUENCY_TRANSVERSE = trapping_frequency_transverse.u.d;
-    toml_datum_t hard_wall_repulsion_coefficient = toml_double_in(properties, "hard_wall_repulsion_coefficient");
-    *WALL_REPULSION_COEFFICIENT = hard_wall_repulsion_coefficient.u.d;
+    toml_datum_t wall_repulsion_coefficient = toml_double_in(properties, "wall_repulsion_coefficient");
+    *WALL_REPULSION_COEFFICIENT = wall_repulsion_coefficient.u.d;
     toml_datum_t data_sampling_rate = toml_int_in(properties, "sampling_rate");
     *SAMPLING_RATE = data_sampling_rate.u.i;
     toml_datum_t blocking_transformation_number = toml_int_in(properties, "blocking_transformation_number");
@@ -193,7 +193,7 @@ double calculate_energy(double **positions, double *position, int N, double M, i
         0.5 * M *
         (FREQUENCY_TRANSVERSE * FREQUENCY_TRANSVERSE * (position[0] * position[0] + position[1] * position[1]) +
          FREQUENCY_Z * FREQUENCY_Z * position[2] * position[2]);
-    double dipole_dipole_interaction = 0, hard_wall_repulsion = 0;
+    double dipole_dipole_interaction = 0, wall_repulsion = 0;
     double displacement[3], distance, vector_term;
 
     for (int i = 0; i < N; i++) {
@@ -204,16 +204,16 @@ double calculate_energy(double **positions, double *position, int N, double M, i
             distance = magnitude(displacement, 3);
             vector_term = dot_product(displacement, DIPOLE_UNIT_VECTOR, 3);
             dipole_dipole_interaction += (distance * distance - 3 * vector_term * vector_term) / pow(distance, 5);
-            hard_wall_repulsion += WALL_REPULSION_COEFFICIENT / pow(distance, 6);
+            wall_repulsion += WALL_REPULSION_COEFFICIENT / pow(distance, 6);
         }
     }
-    return trapping_potential + (DIPOLE_MOMENT * DIPOLE_MOMENT * dipole_dipole_interaction) + hard_wall_repulsion;
+    return trapping_potential + (DIPOLE_MOMENT * DIPOLE_MOMENT * dipole_dipole_interaction) + wall_repulsion;
 }
 
 // Function that calculates the total potential energy of a given configuration
 double calculate_total_energy(double **positions, int N, double M, double DIPOLE_MOMENT, double *DIPOLE_UNIT_VECTOR,
                               double FREQUENCY_Z, double FREQUENCY_TRANSVERSE, double WALL_REPULSION_COEFFICIENT) {
-    double total_dipole_dipole_interaction = 0, total_trapping_potential = 0, total_hard_wall_repulsion = 0;
+    double total_dipole_dipole_interaction = 0, total_trapping_potential = 0, total_wall_repulsion = 0;
     double displacement[3], distance, vector_term;
 
     for (int i = 0; i < N; i++) {
@@ -228,11 +228,11 @@ double calculate_total_energy(double **positions, int N, double M, double DIPOLE
             distance = magnitude(displacement, 3);
             vector_term = dot_product(displacement, DIPOLE_UNIT_VECTOR, 3);
             total_dipole_dipole_interaction += (distance * distance - 3 * vector_term * vector_term) / pow(distance, 5);
-            total_hard_wall_repulsion += WALL_REPULSION_COEFFICIENT / pow(distance, 6);
+            total_wall_repulsion += WALL_REPULSION_COEFFICIENT / pow(distance, 6);
         }
     }
     return total_trapping_potential + (DIPOLE_MOMENT * DIPOLE_MOMENT * total_dipole_dipole_interaction) +
-           total_hard_wall_repulsion;
+           total_wall_repulsion;
 }
 
 double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M, int T, double SIGMA,
