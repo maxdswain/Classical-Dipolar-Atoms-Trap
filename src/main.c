@@ -25,7 +25,7 @@ double calculate_energy(double **positions, double *position, int N, double M, i
                         double WALL_REPULSION_COEFFICIENT);
 double calculate_total_energy(double **positions, int N, double M, double DIPOLE_MOMENT, double *DIPOLE_UNIT_VECTOR,
                               double FREQUENCY_Z, double FREQUENCY_TRANSVERSE, double WALL_REPULSION_COEFFICIENT);
-double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M, int T, double SIGMA,
+double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M, double T, double SIGMA,
                             double DIPOLE_MOMENT, double *DIPOLE_UNIT_VECTOR, double FREQUENCY_Z,
                             double FREQUENCY_TRANSVERSE, double WALL_REPULSION_COEFFICIENT, int SAMPLING_RATE);
 double *reblocking(double *energies_saved, int size, int BTN);
@@ -235,7 +235,7 @@ double calculate_total_energy(double **positions, int N, double M, double DIPOLE
            total_wall_repulsion;
 }
 
-double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M, int T, double SIGMA,
+double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M, double T, double SIGMA,
                             double DIPOLE_MOMENT, double *DIPOLE_UNIT_VECTOR, double FREQUENCY_Z,
                             double FREQUENCY_TRANSVERSE, double WALL_REPULSION_COEFFICIENT, int SAMPLING_RATE) {
     clock_t begin = clock();
@@ -267,13 +267,13 @@ double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M,
                 energy_previous;
             if (energy_difference <= 0) {
                 accepted++;
-                for (int k = 0; k < 3; k++) {
-                    positions[index][k] = trial_positions[k];
+                for (int j = 0; j < 3; j++) {
+                    positions[index][j] = trial_positions[j];
                 }
             } else if (gsl_rng_uniform(r) <= exp(-energy_difference / (BOLTZMANN * T))) {
                 accepted++;
-                for (int k = 0; k < 3; k++) {
-                    positions[index][k] = trial_positions[k];
+                for (int j = 0; j < 3; j++) {
+                    positions[index][j] = trial_positions[j];
                 }
             }
             /* Every SAMPLING_RATE iteration the positions of every atom are saved and
