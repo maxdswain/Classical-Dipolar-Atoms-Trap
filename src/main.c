@@ -105,7 +105,7 @@ void read_config(int *N, int *ITERATIONS, double *T, double *M, double *SIGMA, d
                  double *WALL_REPULSION_COEFFICIENT, int *SAMPLING_RATE, int *BTN, int *CUTOFF) {
     FILE *fp = fopen("config.toml", "r");  // Read and parse toml file
     if (!fp) {
-        error("Cannot open config.toml", "");
+        error("Cannot open config.toml", strerror(errno));
     }
     char errbuf[200];
     toml_table_t *conf = toml_parse_file(fp, errbuf, sizeof(errbuf));
