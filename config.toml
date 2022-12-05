@@ -1,18 +1,18 @@
 [simulation_properties]
 particles = 50
 repetitions = 40000
-temperature = 1.0                     # Temperature in Kelvin
-sigma = 2100.0                        # Should be a value so that the acceptance rate is 50%
+temperature = 1.0                             # Temperature in Kelvin
+sigma = 100000.0                              # Should be a value so that the acceptance rate is 50%
 mass = 1.0
 dipole_moment = 0.5
 dipole_unit_vector = [
     0.92998110995,
     0.34874291623,
     0.11624763874,
-]                                     # [8 / sqrt(74), 3 / sqrt(74), 1 / sqrt(74)]
-trapping_frequency_z = 50.0
-trapping_frequency_transverse = 1.0
-hard_wall_repulsion_coefficient = 1.0
+]                                             # [8 / sqrt(74), 3 / sqrt(74), 1 / sqrt(74)]
+trapping_frequency_z = 0.99960023984          # 50 in Hz
+trapping_frequency_transverse = 0.01999200479 # 1 in Hz
+wall_repulsion_coefficient = 1.0
 sampling_rate = 5
 blocking_transformation_number = 3
-cutoff = 1000                         # cutoff * sample_rate is the iteration at which energies are discarded - be generous in choosing the value
+cutoff = 2000                                 # cutoff * sample_rate is the iteration at which energies are discarded - be generous in choosing the value

@@ -65,7 +65,7 @@ def plot_energies_iterations(energies: np.ndarray[np.float64], error: float) -> 
     ax.errorbar(
         np.linspace(CUTOFF * SAMPLING_RATE, ITERATIONS, len(energies)), energies, yerr=error, ecolor="r", fmt="k"
     )
-    ax.set(xlabel="Iterations", ylabel="Mean energies")
+    ax.set(xlabel="Iterations", ylabel="Mean energy")
     plt.show()
 
 
