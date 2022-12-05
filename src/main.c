@@ -291,15 +291,12 @@ double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M,
             minima_differences[2 * counter + 1] = malloc(3 * sizeof(*minima_differences));
             for (int k = 0; k < 3; k++) {
                 minima_differences[2 * counter][k] = basins[i][k] - basins[j][k];
-                minima_differences[2 * counter + 1][k] = basins[j][k] - basins[i][k];
+                minima_differences[2 * counter + 1][k] = -minima_differences[2 * counter][k];
             }
             counter++;
         }
     }
-    for (int i = 0; i < number_of_basins; i++) {
-        free(basins[i]);
-    }
-    free(basins);
+    free_2D_array(basins, number_of_basins);
     /* Main code of the Metropolis-Hasting algorithm. The previous energy is calculated then trial positions
     are generated for index particle, the difference in energy between the previous energy and the energy
     with the trial positions is calculated and if the energy different is less than or equal to 0 the trial
@@ -354,10 +351,7 @@ double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M,
     }
     gsl_rng_free(r);
     export_positions(&positions_saved);
-    for (int i = 0; i < number_of_basins * number_of_basins; i++) {
-        free(minima_differences[i]);
-    }
-    free(minima_differences);
+    free_2D_array(minima_differences, number_of_basins * number_of_basins);
     double percent_accepted = 100 * (double)accepted / (double)(ITERATIONS * N);
     printf("\n\npercent accepted: %.2f%%\nnumber accepted: %d\n\n\n", percent_accepted, accepted);
     return energies_saved;
@@ -365,6 +359,9 @@ double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M,
 
 double **read_basins(int *size) {
     FILE *fp = fopen("minima_basins.txt", "r");
+    if (!fp) {
+        error("Cannot open minima_basins.txt", strerror(errno));
+    }
     fscanf(fp, "%d", size);
     double **basins = malloc(*size * sizeof(**basins));
     for (int i = 0; i < *size; i++) {
