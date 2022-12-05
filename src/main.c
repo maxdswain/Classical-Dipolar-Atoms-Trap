@@ -5,6 +5,7 @@
 #include <gsl/gsl_randist.h>
 #include <toml.h>
 
+#define BAR_WIDTH 70
 #define BOLTZMANN 2617360049  // Boltzmann constant in defined systems of units based on values in config
 
 typedef struct {
@@ -12,6 +13,7 @@ typedef struct {
     double *data;
 } Double3D;
 
+void error(const char *msg, const char *errmsg);
 void read_config(int *N, int *ITERATIONS, double *T, double *M, double *SIGMA, double *DIPOLE_MOMENT,
                  double *DIPOLE_UNIT_VECTOR, double *FREQUENCY_Z, double *FREQUENCY_TRANSVERSE,
                  double *WALL_REPULSION_COEFFICIENT, int *SAMPLING_RATE, int *BTN, int *CUTOFF);
@@ -20,6 +22,7 @@ double sum(double *a, int D);
 double magnitude(double *a, int D);
 double dot_product(double *a, double *b, int D);
 double *slice(double *a, int from, int until);
+void free_2D_array(double **array, int size);
 double calculate_energy(double **positions, double *position, int N, double M, int index, double DIPOLE_MOMENT,
                         double *DIPOLE_UNIT_VECTOR, double FREQUENCY_Z, double FREQUENCY_TRANSVERSE,
                         double WALL_REPULSION_COEFFICIENT);
@@ -49,6 +52,16 @@ int main(int argc, char **argv) {
         N, ITERATIONS, T, M, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR[0], DIPOLE_UNIT_VECTOR[1], DIPOLE_UNIT_VECTOR[2],
         FREQUENCY_Z, FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT, CUTOFF);
 
+    int MAX_BTN = 2;  // ((ITERATIONS / SAMPLING_RATE) - CUTOFF) / 2^MAX_BTN must be an integer
+    while (((ITERATIONS / SAMPLING_RATE) - CUTOFF) % (int)pow(2, MAX_BTN + 1) == 0) MAX_BTN++;
+    char num[(int)((ceil(log10(MAX_BTN)) + 1) * sizeof(char))];
+    char errmsg[40] = "BTN must be less than or equal to ";
+    sprintf(num, "%d", MAX_BTN);
+    strcat(errmsg, num);
+    if (BTN > MAX_BTN) {
+        error("BTN chosen in config.toml is too large", errmsg);
+    }
+
     // Run simulation using values read from config file then calculate total energy of the last configuration
     double **positions = position_random_generation(N, T, M, FREQUENCY_Z, FREQUENCY_TRANSVERSE);
     double *energies_saved =
@@ -57,14 +70,14 @@ int main(int argc, char **argv) {
 
     printf("Energy of last sampled configuration: %e\n", energies_saved[ITERATIONS / SAMPLING_RATE - 1]);
 
-    int MAX_BTN = 2;  // ((ITERATIONS / SAMPLING_RATE) - CUTOFF) / 2^MAX_BTN must be an integer
-    while (((ITERATIONS / SAMPLING_RATE) - CUTOFF) % (int)pow(2, MAX_BTN + 1) == 0) MAX_BTN++;
     double *sliced_energies_saved = slice(energies_saved, CUTOFF, ITERATIONS / SAMPLING_RATE);
     free(energies_saved);
+    double *reblocked_energies = reblocking(sliced_energies_saved, (ITERATIONS / SAMPLING_RATE) - CUTOFF, BTN);
 
     // Calculates the standard errors post equilibration (decided by value of CUTOFF) for different BTN
     double *errors = malloc(MAX_BTN * sizeof(*errors));
     double *mean_energies = reblocking(sliced_energies_saved, (ITERATIONS / SAMPLING_RATE) - CUTOFF, 1);
+    free(sliced_energies_saved);
     int size_mean_energies = 0.5 * ((ITERATIONS / SAMPLING_RATE) - CUTOFF);
     errors[0] = calculate_error(mean_energies, size_mean_energies, N);
     for (int i = 1; i < MAX_BTN; i++) {
@@ -76,25 +89,30 @@ int main(int argc, char **argv) {
         errors[i] = calculate_error(mean_energies, size_mean_energies, N);
     }
     free(mean_energies);
-
-    double *reblocked_energies = reblocking(sliced_energies_saved, (ITERATIONS / SAMPLING_RATE) - CUTOFF, BTN);
-    free(sliced_energies_saved);
     export_1D_array("simulation_energy_data.txt", reblocked_energies,
                     ((ITERATIONS / SAMPLING_RATE) - CUTOFF) / pow(2, BTN));
     export_1D_array("simulation_error_data.txt", errors, MAX_BTN);
-    for (int i = 0; i < N; i++) {
-        free(positions[i]);
-    }
-    free(positions);
+    free_2D_array(positions, N);
+}
+
+void error(const char *msg, const char *errmsg) {
+    fprintf(stderr, "ERROR: %s - %s\n", msg, errmsg);
+    exit(-1);
 }
 
 void read_config(int *N, int *ITERATIONS, double *T, double *M, double *SIGMA, double *DIPOLE_MOMENT,
                  double *DIPOLE_UNIT_VECTOR, double *FREQUENCY_Z, double *FREQUENCY_TRANSVERSE,
                  double *WALL_REPULSION_COEFFICIENT, int *SAMPLING_RATE, int *BTN, int *CUTOFF) {
     FILE *fp = fopen("config.toml", "r");  // Read and parse toml file
+    if (!fp) {
+        error("Cannot open config.toml", "");
+    }
     char errbuf[200];
     toml_table_t *conf = toml_parse_file(fp, errbuf, sizeof(errbuf));
     fclose(fp);
+    if (!conf) {
+        error("Cannot parse", errbuf);
+    }
     toml_table_t *properties = toml_table_in(conf, "simulation_properties");  // Traverse to a table
     toml_datum_t particles = toml_int_in(properties, "particles");            // Extract values from table
     *N = particles.u.i;
@@ -125,6 +143,13 @@ void read_config(int *N, int *ITERATIONS, double *T, double *M, double *SIGMA, d
     *BTN = blocking_transformation_number.u.i;
     toml_datum_t cutoff = toml_int_in(properties, "cutoff");
     *CUTOFF = cutoff.u.i;
+    char num[(int)((ceil(log10(*ITERATIONS / *SAMPLING_RATE)) + 1) * sizeof(char))];
+    char errmsg[40] = "Cutoff must be less than ";
+    sprintf(num, "%d", *ITERATIONS / *SAMPLING_RATE);
+    strcat(errmsg, num);
+    if (*CUTOFF >= *ITERATIONS / *SAMPLING_RATE) {
+        error("Cutoff value chosen in config.toml is too large", errmsg);
+    }
     toml_free(conf);  // Free memory
 }
 
@@ -183,6 +208,13 @@ double *slice(double *a, int from, int until) {
         array[i] = a[from + i];
     }
     return array;
+}
+
+void free_2D_array(double **array, int size) {
+    for (int i = 0; i < size; i++) {
+        free(array[i]);
+    }
+    free(array);
 }
 
 // Function that calculates the potential energy of a given single atom
@@ -290,8 +322,7 @@ double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M,
                 }
             }
         }
-        clock_t end = clock();
-        double time_taken = (double)(end - begin) / CLOCKS_PER_SEC;
+        double time_taken = (double)(clock() - begin) / CLOCKS_PER_SEC;
         progress_bar(((double)i + 1) / (double)ITERATIONS, time_taken);
     }
     gsl_rng_free(r);
@@ -351,11 +382,10 @@ void export_1D_array(char *file_name, double *array, int size) {
 }
 
 void progress_bar(double progress, double time_taken) {
-    int bar_width = 70;
-    int pos = bar_width * progress;
+    int pos = BAR_WIDTH * progress;
 
     printf("\r|");
-    for (int i = 0; i < bar_width; i++) {
+    for (int i = 0; i < BAR_WIDTH; i++) {
         if (i < pos) {
             printf("█");
         } else if (i == pos) {
