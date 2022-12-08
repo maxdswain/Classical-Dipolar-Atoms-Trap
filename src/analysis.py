@@ -10,16 +10,16 @@ except ModuleNotFoundError:
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Read needed constants from config file
-with open("config.toml", "rb") as f:
-    config = tomllib.load(f)
+# Read needed constants from input file
+with open("input.toml", "rb") as f:
+    input = tomllib.load(f)
 
-N = config["simulation_properties"]["particles"]
-ITERATIONS = config["simulation_properties"]["repetitions"]
-T = config["simulation_properties"]["temperature"]
-SAMPLING_RATE = config["simulation_properties"]["sampling_rate"]
-BTN = config["simulation_properties"]["blocking_transformation_number"]
-CUTOFF = config["simulation_properties"]["cutoff"]
+N = input["simulation_properties"]["particles"]
+ITERATIONS = input["simulation_properties"]["repetitions"]
+T = input["simulation_properties"]["temperature"]
+SAMPLING_RATE = input["simulation_properties"]["sampling_rate"]
+BTN = input["simulation_properties"]["blocking_transformation_number"]
+CUTOFF = input["simulation_properties"]["cutoff"]
 
 
 def read_simulation_data() -> tuple[np.ndarray[np.float64], np.ndarray[np.float64], np.ndarray[np.float64]]:
@@ -30,7 +30,7 @@ def read_simulation_data() -> tuple[np.ndarray[np.float64], np.ndarray[np.float6
 
 
 def boltzmann_distribution(energies: np.ndarray[np.float64]) -> Callable[[float], float]:
-    BOLTZMANN_CONSTANT = 2617360049  # Boltzmann constant in defined systems of units based on values in config
+    BOLTZMANN_CONSTANT = 2617360049  # Boltzmann constant in defined systems of units based on values in input
     Z = sum([np.exp(-energy / (BOLTZMANN_CONSTANT * T)) for energy in energies])
     return lambda energy: len(energies) * np.exp(-energy / (BOLTZMANN_CONSTANT * T)) / Z
 
@@ -39,7 +39,7 @@ def plot_energy_histogram(energies: np.ndarray[np.float64]) -> None:
     _, ax = plt.subplots()
     sorted_energies = sorted(energies)
     distribution = boltzmann_distribution(sorted_energies)
-    ax.hist(energies, bins=30, alpha=0.5)
+    ax.hist(energies, bins=20, alpha=0.5)
     ax.plot(
         sorted_energies,
         [distribution(energy) for energy in sorted_energies],
@@ -60,12 +60,10 @@ def plot_positions_iterations(positions: np.ndarray[np.float64], component: int)
     plt.show()
 
 
-def plot_energies_iterations(energies: np.ndarray[np.float64], error: float) -> None:
+def plot_energies_iterations(energies: np.ndarray[np.float64]) -> None:
     _, ax = plt.subplots()
-    ax.errorbar(
-        np.linspace(CUTOFF * SAMPLING_RATE, ITERATIONS, len(energies)), energies, yerr=error, ecolor="r", fmt="k"
-    )
-    ax.set(xlabel="Iterations", ylabel="Mean energy")
+    ax.plot(np.linspace(CUTOFF * SAMPLING_RATE, ITERATIONS, len(energies)), energies)
+    ax.set(xlabel="Iterations", ylabel="Energy")
     plt.show()
 
 
@@ -89,5 +87,5 @@ if __name__ == "__main__":
 
     plot_error(errors)
     plot_energy_histogram(energies)
-    plot_energies_iterations(energies, errors[BTN - 1])
+    plot_energies_iterations(energies)
     plot_positions_iterations(positions, 0)
