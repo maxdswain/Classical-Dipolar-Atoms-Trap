@@ -6,7 +6,7 @@
 #include <toml.h>
 
 #define BAR_WIDTH 70
-#define BOLTZMANN 2617360049  // Boltzmann constant in defined systems of units based on values in config
+#define BOLTZMANN 2617360049  // Boltzmann constant in defined systems of units based on values in the input file
 
 typedef struct {
     int m, n, l;
@@ -17,7 +17,8 @@ void error(const char *msg, const char *errmsg);
 void read_config(int *N, int *ITERATIONS, double *T, double *M, double *SIGMA, double *DIPOLE_MOMENT,
                  double *DIPOLE_UNIT_VECTOR, double *FREQUENCY_Z, double *FREQUENCY_TRANSVERSE,
                  double *WALL_REPULSION_COEFFICIENT, int *SAMPLING_RATE, int *BTN, int *CUTOFF);
-double **position_random_generation(int N, double T, double M, double FREQUENCY_Z, double FREQUENCY_TRANSVERSE);
+double **position_random_generation(int N, double T, double M, double FREQUENCY_Z, double FREQUENCY_TRANSVERSE,
+                                    unsigned long int seed);
 double sum(double *a, int D);
 double magnitude(double *a, int D);
 double dot_product(double *a, double *b, int D);
@@ -30,15 +31,16 @@ double calculate_total_energy(double **positions, int N, double M, double DIPOLE
                               double FREQUENCY_Z, double FREQUENCY_TRANSVERSE, double WALL_REPULSION_COEFFICIENT);
 double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M, double T, double SIGMA,
                             double DIPOLE_MOMENT, double *DIPOLE_UNIT_VECTOR, double FREQUENCY_Z,
-                            double FREQUENCY_TRANSVERSE, double WALL_REPULSION_COEFFICIENT, int SAMPLING_RATE);
+                            double FREQUENCY_TRANSVERSE, double WALL_REPULSION_COEFFICIENT, int SAMPLING_RATE,
+                            unsigned long int seed);
 double *reblocking(double *energies_saved, int size, int BTN);
-double calculate_error(double *mean_energies, int size, int N);
+double calculate_error(double *mean_energies, int size);
 void export_positions(Double3D *positions_saved);
 void export_1D_array(char *file_name, double *array, int size);
 void progress_bar(double progress, double time_taken);
 
 int main(int argc, char **argv) {
-    // Declare then read constants from a config file and print them out
+    // Declare then read constants from an input file and print them out
     int N, ITERATIONS, SAMPLING_RATE, BTN, CUTOFF;
     double T, M, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR[3], FREQUENCY_Z, FREQUENCY_TRANSVERSE,
         WALL_REPULSION_COEFFICIENT;
@@ -46,7 +48,7 @@ int main(int argc, char **argv) {
     read_config(&N, &ITERATIONS, &T, &M, &SIGMA, &DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR, &FREQUENCY_Z,
                 &FREQUENCY_TRANSVERSE, &WALL_REPULSION_COEFFICIENT, &SAMPLING_RATE, &BTN, &CUTOFF);
     printf(
-        "Current variables set in config:\nN: %d\niterations: %d\ntemperature: %f\nmass: %f\nsigma: "
+        "Current variables set in input file:\nN: %d\niterations: %d\ntemperature: %f\nmass: %f\nsigma: "
         "%e\ndipole moment magnitude: %f\ndipole unit vector: %f %f %f\nfrequency_z: %f\nfrequency_transverse: "
         "%f\nwall repulsion coefficient: %f\ncutoff: %d\n\n",
         N, ITERATIONS, T, M, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR[0], DIPOLE_UNIT_VECTOR[1], DIPOLE_UNIT_VECTOR[2],
@@ -59,14 +61,15 @@ int main(int argc, char **argv) {
     sprintf(num, "%d", MAX_BTN);
     strcat(errmsg, num);
     if (BTN > MAX_BTN) {
-        error("BTN chosen in config.toml is too large", errmsg);
+        error("BTN chosen in input.toml is too large", errmsg);
     }
 
-    // Run simulation using values read from config file then calculate total energy of the last configuration
-    double **positions = position_random_generation(N, T, M, FREQUENCY_Z, FREQUENCY_TRANSVERSE);
+    // Run simulation using values read from input file then calculate total energy of the last configuration
+    unsigned long int seed = 11;
+    double **positions = position_random_generation(N, T, M, FREQUENCY_Z, FREQUENCY_TRANSVERSE, seed);
     double *energies_saved =
         metropolis_hastings(positions, ITERATIONS, N, M, T, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR, FREQUENCY_Z,
-                            FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT, SAMPLING_RATE);
+                            FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT, SAMPLING_RATE, seed);
 
     printf("Energy of last sampled configuration: %e\n", energies_saved[ITERATIONS / SAMPLING_RATE - 1]);
 
@@ -77,20 +80,18 @@ int main(int argc, char **argv) {
     // Calculates the standard errors post equilibration (decided by value of CUTOFF) for different BTN
     double *errors = malloc(MAX_BTN * sizeof(*errors));
     double *mean_energies = reblocking(sliced_energies_saved, (ITERATIONS / SAMPLING_RATE) - CUTOFF, 1);
-    free(sliced_energies_saved);
+    export_1D_array("simulation_energy_data.txt", sliced_energies_saved, ITERATIONS / SAMPLING_RATE - CUTOFF);
     int size_mean_energies = 0.5 * ((ITERATIONS / SAMPLING_RATE) - CUTOFF);
-    errors[0] = calculate_error(mean_energies, size_mean_energies, N);
+    errors[0] = calculate_error(mean_energies, size_mean_energies);
     for (int i = 1; i < MAX_BTN; i++) {
         double *temp_array = reblocking(mean_energies, size_mean_energies, 1);
         size_mean_energies /= 2;
         mean_energies = realloc(mean_energies, size_mean_energies * sizeof(*mean_energies));
         memcpy(mean_energies, temp_array, size_mean_energies * sizeof(*temp_array));
         free(temp_array);
-        errors[i] = calculate_error(mean_energies, size_mean_energies, N);
+        errors[i] = calculate_error(mean_energies, size_mean_energies);
     }
     free(mean_energies);
-    export_1D_array("simulation_energy_data.txt", reblocked_energies,
-                    ((ITERATIONS / SAMPLING_RATE) - CUTOFF) / pow(2, BTN));
     export_1D_array("simulation_error_data.txt", errors, MAX_BTN);
     free_2D_array(positions, N);
 }
@@ -103,9 +104,9 @@ void error(const char *msg, const char *errmsg) {
 void read_config(int *N, int *ITERATIONS, double *T, double *M, double *SIGMA, double *DIPOLE_MOMENT,
                  double *DIPOLE_UNIT_VECTOR, double *FREQUENCY_Z, double *FREQUENCY_TRANSVERSE,
                  double *WALL_REPULSION_COEFFICIENT, int *SAMPLING_RATE, int *BTN, int *CUTOFF) {
-    FILE *fp = fopen("config.toml", "r");  // Read and parse toml file
+    FILE *fp = fopen("input.toml", "r");  // Read and parse toml file
     if (!fp) {
-        error("Cannot open config.toml", strerror(errno));
+        error("Cannot open input.toml", strerror(errno));
     }
     char errbuf[200];
     toml_table_t *conf = toml_parse_file(fp, errbuf, sizeof(errbuf));
@@ -148,14 +149,16 @@ void read_config(int *N, int *ITERATIONS, double *T, double *M, double *SIGMA, d
     sprintf(num, "%d", *ITERATIONS / *SAMPLING_RATE);
     strcat(errmsg, num);
     if (*CUTOFF >= *ITERATIONS / *SAMPLING_RATE) {
-        error("Cutoff value chosen in config.toml is too large", errmsg);
+        error("Cutoff value chosen in input.toml is too large", errmsg);
     }
     toml_free(conf);  // Free memory
 }
 
-double **position_random_generation(int N, double T, double M, double FREQUENCY_Z, double FREQUENCY_TRANSVERSE) {
+double **position_random_generation(int N, double T, double M, double FREQUENCY_Z, double FREQUENCY_TRANSVERSE,
+                                    unsigned long int seed) {
     gsl_rng_env_setup();
     gsl_rng *r = gsl_rng_alloc(gsl_rng_default);  // Generator type
+    gsl_rng_set(r, seed);                         // Set seed
 
     // Randomly generate N x 3 array from uniform distribution
     double **array = malloc(N * sizeof(**array));
@@ -236,7 +239,7 @@ double calculate_energy(double **positions, double *position, int N, double M, i
             distance = magnitude(displacement, 3);
             vector_term = dot_product(displacement, DIPOLE_UNIT_VECTOR, 3);
             dipole_dipole_interaction += (distance * distance - 3 * vector_term * vector_term) / pow(distance, 5);
-            wall_repulsion += WALL_REPULSION_COEFFICIENT / pow(distance, 12);
+            wall_repulsion += WALL_REPULSION_COEFFICIENT / pow(distance, 6);
         }
     }
     return trapping_potential + (DIPOLE_MOMENT * DIPOLE_MOMENT * dipole_dipole_interaction) + wall_repulsion;
@@ -260,7 +263,7 @@ double calculate_total_energy(double **positions, int N, double M, double DIPOLE
             distance = magnitude(displacement, 3);
             vector_term = dot_product(displacement, DIPOLE_UNIT_VECTOR, 3);
             total_dipole_dipole_interaction += (distance * distance - 3 * vector_term * vector_term) / pow(distance, 5);
-            total_wall_repulsion += WALL_REPULSION_COEFFICIENT / pow(distance, 12);
+            total_wall_repulsion += WALL_REPULSION_COEFFICIENT / pow(distance, 6);
         }
     }
     return total_trapping_potential + (DIPOLE_MOMENT * DIPOLE_MOMENT * total_dipole_dipole_interaction) +
@@ -269,10 +272,12 @@ double calculate_total_energy(double **positions, int N, double M, double DIPOLE
 
 double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M, double T, double SIGMA,
                             double DIPOLE_MOMENT, double *DIPOLE_UNIT_VECTOR, double FREQUENCY_Z,
-                            double FREQUENCY_TRANSVERSE, double WALL_REPULSION_COEFFICIENT, int SAMPLING_RATE) {
+                            double FREQUENCY_TRANSVERSE, double WALL_REPULSION_COEFFICIENT, int SAMPLING_RATE,
+                            unsigned long int seed) {
     clock_t begin = clock();
     gsl_rng_env_setup();
     gsl_rng *r = gsl_rng_alloc(gsl_rng_default);  // Generator type
+    gsl_rng_set(r, seed);                         // Set seed
 
     int accepted = 0;
     double trial_positions[3], energy_difference, energy_previous;
@@ -348,14 +353,14 @@ double *reblocking(double *energies_saved, int size, int BTN) {
 }
 
 // Function that calculates error in mean energies for each subset of mean energies
-double calculate_error(double *mean_energies, int size, int N) {
+double calculate_error(double *mean_energies, int size) {
     double error = 0;
     double mean = sum(mean_energies, size) / size;
 
     for (int i = 0; i < size; i++) {
         error += (mean_energies[i] - mean) * (mean_energies[i] - mean);
     }
-    return sqrt(error / (size - 1)) / N;
+    return sqrt(error / size);
 }
 
 void export_positions(Double3D *positions_saved) {
