@@ -20,6 +20,9 @@ T = input["simulation_properties"]["temperature"]
 SAMPLING_RATE = input["simulation_properties"]["sampling_rate"]
 BTN = input["simulation_properties"]["blocking_transformation_number"]
 CUTOFF = input["simulation_properties"]["cutoff"]
+ORDER_REPULSIVE_WALL = input["simulation_properties"]["order_repulsive_wall"]
+WALL_REPULSION_COEFFICIENT = input["simulation_properties"]["wall_repulsion_coefficient"]
+DIPOLE_MOMENT = input["simulation_properties"]["dipole_moment"]
 
 
 def read_simulation_data() -> tuple[np.ndarray[np.float64], np.ndarray[np.float64], np.ndarray[np.float64]]:
@@ -81,10 +84,28 @@ def plot_error(errors: np.ndarray[np.float64]) -> None:
     plt.show()
 
 
+def plot_potential() -> None:
+    _, ax = plt.subplots()
+    r = np.linspace(0.1, 0.3, 101)
+    lennard_jones = WALL_REPULSION_COEFFICIENT * r**-ORDER_REPULSIVE_WALL
+    dd_interaction = -2 * DIPOLE_MOMENT**2 * r**-3
+    ax.plot(r, dd_interaction + lennard_jones, label="Combined Potential")
+    ax.plot(r, lennard_jones, label="Lennard-Jones Potential")
+    ax.plot(r, dd_interaction, label="Dipole-Diple Interaction")
+    ax.set(
+        xlabel="Difference in Position $r$",
+        ylabel="Potential $V(r)$",
+        title="Plot of Various Potentials Against the Difference in Distance Between 2 Atoms",
+    )
+    ax.legend(loc="upper right")
+    plt.show()
+
+
 if __name__ == "__main__":
     positions, energies, errors = read_simulation_data()
     distances = np.linalg.norm(positions[-1], axis=1)
 
+    plot_potential()
     plot_error(errors)
     plot_energy_histogram(energies)
     plot_energies_iterations(energies)
