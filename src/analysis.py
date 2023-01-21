@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from collections.abc import Callable
+import os
 
 try:
     import tomllib
@@ -26,9 +27,9 @@ DIPOLE_MOMENT = input["simulation_properties"]["dipole_moment"]
 
 
 def read_simulation_data() -> tuple[np.ndarray[np.float64], np.ndarray[np.float64], np.ndarray[np.float64]]:
-    positions = np.loadtxt("simulation_position_data.txt").reshape(ITERATIONS // SAMPLING_RATE, N, 3)
-    energies = np.loadtxt("simulation_energy_data.txt")
-    errors = np.loadtxt("simulation_error_data.txt")
+    positions = np.loadtxt("position_data.txt").reshape(ITERATIONS // SAMPLING_RATE, N, 3)
+    energies = np.loadtxt("energy_data.txt")
+    errors = np.loadtxt("error_data.txt")
     return positions, energies, errors
 
 
@@ -70,6 +71,15 @@ def plot_energies_iterations(energies: np.ndarray[np.float64]) -> None:
     plt.show()
 
 
+def plot_many_energies_iterations() -> None:
+    _, ax = plt.subplots()
+    energy_data = [np.loadtxt(f) for f in os.listdir(".") if os.path.isfile(f) and "energy" in f]
+    for energies in energy_data:
+        ax.plot(np.linspace(CUTOFF * SAMPLING_RATE, ITERATIONS, len(energies)), energies)
+    ax.set(xlabel="Iterations", ylabel="Energy")
+    plt.show()
+
+
 def plot_snapshot(positions: np.ndarray[np.float64], iteration: int) -> None:
     _, ax = plt.subplots()
     ax.scatter(positions[iteration, :, 0], positions[iteration, :, 1], c="black")
@@ -95,7 +105,7 @@ def plot_potential() -> None:
     ax.set(
         xlabel="Difference in Position $r$",
         ylabel="Potential $V(r)$",
-        title="Plot of Various Potentials Against the Difference in Distance Between 2 Atoms",
+        title="Plot of Potentials Against the Difference in Distance Between 2 Atoms",
     )
     ax.legend(loc="upper right")
     plt.show()
@@ -104,9 +114,3 @@ def plot_potential() -> None:
 if __name__ == "__main__":
     positions, energies, errors = read_simulation_data()
     distances = np.linalg.norm(positions[-1], axis=1)
-
-    plot_potential()
-    plot_error(errors)
-    plot_energy_histogram(energies)
-    plot_energies_iterations(energies)
-    plot_positions_iterations(positions, 0)

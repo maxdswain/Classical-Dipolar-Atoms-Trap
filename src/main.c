@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
     // Calculates the standard errors post equilibration (decided by value of CUTOFF) for different BTN
     double *errors = malloc(MAX_BTN * sizeof(*errors));
     double *mean_energies = reblocking(sliced_energies_saved, (ITERATIONS / SAMPLING_RATE) - CUTOFF, 1);
-    export_1D_array("simulation_energy_data.txt", sliced_energies_saved, ITERATIONS / SAMPLING_RATE - CUTOFF);
+    export_1D_array("energy_data.txt", sliced_energies_saved, ITERATIONS / SAMPLING_RATE - CUTOFF);
     int size_mean_energies = 0.5 * ((ITERATIONS / SAMPLING_RATE) - CUTOFF);
     errors[0] = calculate_error(mean_energies, size_mean_energies);
     for (int i = 1; i < MAX_BTN; i++) {
@@ -93,7 +93,7 @@ int main(int argc, char **argv) {
         errors[i] = calculate_error(mean_energies, size_mean_energies);
     }
     free(mean_energies);
-    export_1D_array("simulation_error_data.txt", errors, MAX_BTN);
+    export_1D_array("error_data.txt", errors, MAX_BTN);
     free_2D_array(positions, N);
 }
 
@@ -371,7 +371,7 @@ double calculate_error(double *mean_energies, int size) {
 }
 
 void export_positions(Double3D *positions_saved) {
-    FILE *fp = fopen("simulation_position_data.txt", "w");
+    FILE *fp = fopen("position_data.txt", "w");
     for (int i = 0; i < positions_saved->m; i++) {
         for (int j = 0; j < positions_saved->n; j++) {
             fprintf(fp, "%f %f %f\n",
