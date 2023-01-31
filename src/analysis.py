@@ -111,6 +111,22 @@ def plot_potential() -> None:
     plt.show()
 
 
+def plot_potentials() -> None:
+    _, ax = plt.subplots()
+    r = np.linspace(0.1, 0.3, 101)
+    for x in [WALL_REPULSION_COEFFICIENT * 10**i for i in range(-2, 3)]:
+        potential = x * r**-ORDER_REPULSIVE_WALL - 2 * DIPOLE_MOMENT**2 * r**-3
+        ax.plot(r, potential, label=f"Potential for $c_6={x}$")
+    ax.set(
+        xlabel="Difference in Position $r$",
+        ylabel="Potential $V(r)$",
+        title="Plot of Potentials Against the Difference in Distance Between 2 Atoms",
+        yscale="symlog",
+    )
+    ax.legend(loc="upper right")
+    plt.show()
+
+
 if __name__ == "__main__":
     positions, energies, errors = read_simulation_data()
     distances = np.linalg.norm(positions[-1], axis=1)

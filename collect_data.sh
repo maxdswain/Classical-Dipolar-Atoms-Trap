@@ -2,10 +2,12 @@
 
 seeds=(11 3459 1346653 246 38479)
 make
-for i in {1..5}
+sed -i "/seed/s/= .*/= ${seeds[0]}/" input.toml
+./main
+for i in {1..4}
 do
-    ./main
     mv energy_data.txt energy_data_$i.txt
-    sed -i "/seed/s/= .*/= ${seeds[$i-1]}/" input.toml
+    sed -i "/seed/s/= .*/= ${seeds[$i]}/" input.toml
+    ./main
 done
 ./src/analysis.py
