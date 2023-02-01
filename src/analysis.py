@@ -27,9 +27,9 @@ DIPOLE_MOMENT = input["simulation_properties"]["dipole_moment"]
 
 
 def read_simulation_data() -> tuple[np.ndarray[np.float64], np.ndarray[np.float64], np.ndarray[np.float64]]:
-    positions = np.loadtxt("position_data.txt").reshape(ITERATIONS // SAMPLING_RATE, N, 3)
-    energies = np.loadtxt("energy_data.txt")
-    errors = np.loadtxt("error_data.txt")
+    positions = np.loadtxt("position_data.out").reshape(ITERATIONS // SAMPLING_RATE, N, 3)
+    energies = np.loadtxt("energy_data.out")
+    errors = np.loadtxt("error_data.out")
     return positions, energies, errors
 
 
