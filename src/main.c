@@ -5,25 +5,24 @@
 #include <gsl/gsl_randist.h>
 #include <toml.h>
 
+#include "shared.h"
+
 #define BAR_WIDTH 70
-#define BOLTZMANN 2617360049  // Boltzmann constant in defined systems of units based on values in the input file
+#define BOLTZMANN 1  // Boltzmann constant in defined systems of units based on values in the input file
 
 typedef struct {
     int m, n, l;
     double *data;
 } Double3D;
 
-void error(const char *msg, const char *errmsg);
 void read_config(int *N, int *ITERATIONS, double *T, double *M, double *SIGMA, double *DIPOLE_MOMENT,
                  double *DIPOLE_UNIT_VECTOR, double *FREQUENCY_Z, double *FREQUENCY_TRANSVERSE,
-                 double *WALL_REPULSION_COEFFICIENT, int *WALL_REPULSION_ORDER, int *SAMPLING_RATE, int *BTN,
-                 int *CUTOFF, int *SEED);
-double **position_random_generation(int N, double T, double M, double FREQUENCY_Z, double FREQUENCY_TRANSVERSE,
-                                    int SEED);
-double sum(double *a, int D);
+                 double *WALL_REPULSION_COEFFICIENT, int *WALL_REPULSION_ORDER, int *SAMPLING_RATE, int *READ_CONFIG,
+                 int *SEED);
+void position_random_generation(double **positions, int N, double T, double M, double FREQUENCY_Z,
+                                double FREQUENCY_TRANSVERSE, int SEED);
 double magnitude(double *a, int D);
 double dot_product(double *a, double *b, int D);
-double *slice(double *a, int from, int until);
 void free_2D_array(double **array, int size);
 double calculate_energy(double **positions, double *position, int N, double M, int index, double DIPOLE_MOMENT,
                         double *DIPOLE_UNIT_VECTOR, double FREQUENCY_Z, double FREQUENCY_TRANSVERSE,
@@ -35,77 +34,49 @@ double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M,
                             double DIPOLE_MOMENT, double *DIPOLE_UNIT_VECTOR, double FREQUENCY_Z,
                             double FREQUENCY_TRANSVERSE, double WALL_REPULSION_COEFFICIENT, int WALL_REPULSION_ORDER,
                             int SAMPLING_RATE, int SEED);
-double *reblocking(double *energies_saved, int size, int BTN);
-double calculate_error(double *mean_energies, int size);
+void read_configuration(double **positions, int N);
 void export_positions(Double3D *positions_saved);
-void export_1D_array(char *file_name, double *array, int size);
 void progress_bar(double progress, double time_taken);
 
 int main(int argc, char **argv) {
     // Declare then read constants from an input file and print them out
-    int N, ITERATIONS, SAMPLING_RATE, BTN, CUTOFF, WALL_REPULSION_ORDER, SEED;
+    int N, ITERATIONS, SAMPLING_RATE, WALL_REPULSION_ORDER, READ_CONFIG, SEED;
     double T, M, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR[3], FREQUENCY_Z, FREQUENCY_TRANSVERSE,
         WALL_REPULSION_COEFFICIENT;
 
     read_config(&N, &ITERATIONS, &T, &M, &SIGMA, &DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR, &FREQUENCY_Z,
-                &FREQUENCY_TRANSVERSE, &WALL_REPULSION_COEFFICIENT, &WALL_REPULSION_ORDER, &SAMPLING_RATE, &BTN,
-                &CUTOFF, &SEED);
+                &FREQUENCY_TRANSVERSE, &WALL_REPULSION_COEFFICIENT, &WALL_REPULSION_ORDER, &SAMPLING_RATE, &READ_CONFIG,
+                &SEED);
     printf(
         "Current variables set in input file:\nN: %d\niterations: %d\ntemperature: %f\nmass: %f\nsigma: "
         "%e\ndipole moment magnitude: %f\ndipole unit vector: %f %f %f\nfrequency_z: %f\nfrequency_transverse: "
-        "%f\nwall repulsion coefficient: %f\nwall repulsion order: %d\ncutoff: %d\n\n",
+        "%f\nwall repulsion coefficient: %f\nwall repulsion order: %d\n\n",
         N, ITERATIONS, T, M, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR[0], DIPOLE_UNIT_VECTOR[1], DIPOLE_UNIT_VECTOR[2],
-        FREQUENCY_Z, FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT, WALL_REPULSION_ORDER, CUTOFF);
-
-    int MAX_BTN = 2;  // ((ITERATIONS / SAMPLING_RATE) - CUTOFF) / 2^MAX_BTN must be an integer
-    while (((ITERATIONS / SAMPLING_RATE) - CUTOFF) % (int)pow(2, MAX_BTN + 1) == 0) MAX_BTN++;
-    char num[(int)((ceil(log10(MAX_BTN)) + 1) * sizeof(char))];
-    char errmsg[40] = "BTN must be less than or equal to ";
-    sprintf(num, "%d", MAX_BTN);
-    strcat(errmsg, num);
-    if (BTN > MAX_BTN) {
-        error("BTN chosen in input.toml is too large", errmsg);
-    }
+        FREQUENCY_Z, FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT, WALL_REPULSION_ORDER);
 
     // Run simulation using values read from input file then calculate total energy of the last configuration
-    double **positions = position_random_generation(N, T, M, FREQUENCY_Z, FREQUENCY_TRANSVERSE, SEED);
+    double **positions = malloc(N * sizeof(**positions));
+    for (int i = 0; i < N; i++) {
+        positions[i] = malloc(3 * sizeof(*positions));
+    }
+    if (READ_CONFIG) {
+        read_configuration(positions, N);
+    } else {
+        position_random_generation(positions, N, T, M, FREQUENCY_Z, FREQUENCY_TRANSVERSE, SEED);
+    }
     double *energies_saved = metropolis_hastings(positions, ITERATIONS, N, M, T, SIGMA, DIPOLE_MOMENT,
                                                  DIPOLE_UNIT_VECTOR, FREQUENCY_Z, FREQUENCY_TRANSVERSE,
                                                  WALL_REPULSION_COEFFICIENT, WALL_REPULSION_ORDER, SAMPLING_RATE, SEED);
 
     printf("Energy of last sampled configuration: %e\n", energies_saved[ITERATIONS / SAMPLING_RATE - 1]);
-
-    double *sliced_energies_saved = slice(energies_saved, CUTOFF, ITERATIONS / SAMPLING_RATE);
-    free(energies_saved);
-
-    // Calculates the standard errors post equilibration (decided by value of CUTOFF) for different BTN
-    double *errors = malloc(MAX_BTN * sizeof(*errors));
-    double *mean_energies = reblocking(sliced_energies_saved, (ITERATIONS / SAMPLING_RATE) - CUTOFF, 1);
-    export_1D_array("energy_data.txt", sliced_energies_saved, ITERATIONS / SAMPLING_RATE - CUTOFF);
-    int size_mean_energies = 0.5 * ((ITERATIONS / SAMPLING_RATE) - CUTOFF);
-    errors[0] = calculate_error(mean_energies, size_mean_energies);
-    for (int i = 1; i < MAX_BTN; i++) {
-        double *temp_array = reblocking(mean_energies, size_mean_energies, 1);
-        size_mean_energies /= 2;
-        mean_energies = realloc(mean_energies, size_mean_energies * sizeof(*mean_energies));
-        memcpy(mean_energies, temp_array, size_mean_energies * sizeof(*temp_array));
-        free(temp_array);
-        errors[i] = calculate_error(mean_energies, size_mean_energies);
-    }
-    free(mean_energies);
-    export_1D_array("error_data.txt", errors, MAX_BTN);
+    export_1D_array("energy_data.out", energies_saved, ITERATIONS / SAMPLING_RATE);
     free_2D_array(positions, N);
-}
-
-void error(const char *msg, const char *errmsg) {
-    fprintf(stderr, "ERROR: %s - %s\n", msg, errmsg);
-    exit(-1);
 }
 
 void read_config(int *N, int *ITERATIONS, double *T, double *M, double *SIGMA, double *DIPOLE_MOMENT,
                  double *DIPOLE_UNIT_VECTOR, double *FREQUENCY_Z, double *FREQUENCY_TRANSVERSE,
-                 double *WALL_REPULSION_COEFFICIENT, int *WALL_REPULSION_ORDER, int *SAMPLING_RATE, int *BTN,
-                 int *CUTOFF, int *SEED) {
+                 double *WALL_REPULSION_COEFFICIENT, int *WALL_REPULSION_ORDER, int *SAMPLING_RATE, int *READ_CONFIG,
+                 int *SEED) {
     FILE *fp = fopen("input.toml", "r");  // Read and parse toml file
     if (!fp) {
         error("Cannot open input.toml", strerror(errno));
@@ -144,50 +115,29 @@ void read_config(int *N, int *ITERATIONS, double *T, double *M, double *SIGMA, d
     *WALL_REPULSION_ORDER = wall_repulsion_order.u.i;
     toml_datum_t data_sampling_rate = toml_int_in(properties, "sampling_rate");
     *SAMPLING_RATE = data_sampling_rate.u.i;
-    toml_datum_t blocking_transformation_number = toml_int_in(properties, "blocking_transformation_number");
-    *BTN = blocking_transformation_number.u.i;
-    toml_datum_t cutoff = toml_int_in(properties, "cutoff");
-    *CUTOFF = cutoff.u.i;
-    char num[(int)((ceil(log10(*ITERATIONS / *SAMPLING_RATE)) + 1) * sizeof(char))];
-    char errmsg[40] = "Cutoff must be less than ";
-    sprintf(num, "%d", *ITERATIONS / *SAMPLING_RATE);
-    strcat(errmsg, num);
-    if (*CUTOFF >= *ITERATIONS / *SAMPLING_RATE) {
-        error("Cutoff value chosen in input.toml is too large", errmsg);
-    }
+    toml_datum_t read_configuration = toml_bool_in(properties, "monte_carlo_read_configuration");
+    *READ_CONFIG = read_configuration.u.b;
     toml_datum_t seed = toml_int_in(properties, "seed");
     *SEED = seed.u.i;
     toml_free(conf);  // Free memory
 }
 
-double **position_random_generation(int N, double T, double M, double FREQUENCY_Z, double FREQUENCY_TRANSVERSE,
-                                    int SEED) {
+void position_random_generation(double **positions, int N, double T, double M, double FREQUENCY_Z,
+                                double FREQUENCY_TRANSVERSE, int SEED) {
     gsl_rng_env_setup();
     gsl_rng *r = gsl_rng_alloc(gsl_rng_default);  // Generator type
     gsl_rng_set(r, SEED);                         // Set seed
 
     // Randomly generate N x 3 array from uniform distribution
-    double **array = malloc(N * sizeof(**array));
     const double r_xy = sqrt(6 * BOLTZMANN * T / (M * FREQUENCY_TRANSVERSE * FREQUENCY_TRANSVERSE));
     const double r_z = sqrt(6 * BOLTZMANN * T / (M * FREQUENCY_Z * FREQUENCY_Z));
 
     for (int i = 0; i < N; i++) {
-        array[i] = malloc(3 * sizeof(*array));
-        array[i][0] = gsl_ran_flat(r, -r_xy, r_xy);
-        array[i][1] = gsl_ran_flat(r, -r_xy, r_xy);
-        array[i][2] = gsl_ran_flat(r, -r_z, r_z);
+        positions[i][0] = gsl_ran_flat(r, -r_xy, r_xy);
+        positions[i][1] = gsl_ran_flat(r, -r_xy, r_xy);
+        positions[i][2] = gsl_ran_flat(r, -r_z, r_z);
     }
     gsl_rng_free(r);
-    return array;
-}
-
-double sum(double *a, int D) {
-    double result = 0;
-
-    for (int i = 0; i < D; i++) {
-        result += a[i];
-    }
-    return result;
 }
 
 double magnitude(double *a, int D) {
@@ -206,17 +156,6 @@ double dot_product(double *a, double *b, int D) {
         result += a[i] * b[i];
     }
     return result;
-}
-
-// Creates a subset of an array from one given index to another
-double *slice(double *a, int from, int until) {
-    int size = until - from;
-    double *array = malloc(size * sizeof(*array));
-
-    for (int i = 0; i < size; i++) {
-        array[i] = a[from + i];
-    }
-    return array;
 }
 
 void free_2D_array(double **array, int size) {
@@ -344,34 +283,21 @@ double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M,
     return energies_saved;
 }
 
-/* Function that calculates the mean of adjacent energies,
-then the mean of those mean energies and so on for a specified number of times */
-double *reblocking(double *energies_saved, int size, int BTN) {
-    double *array = malloc(size * sizeof(*array));
-
-    memcpy(array, energies_saved, size * sizeof(*energies_saved));
-    for (int i = 1; i <= BTN; i++) {
-        for (int j = 0; j < size / pow(2, i); j++) {
-            array[j] = 0.5 * (array[2 * j] + array[2 * j + 1]);
+void read_configuration(double **positions, int N) {
+    FILE *fp = fopen("configuration.in", "r");
+    if (!fp) {
+        error("Cannot find configuration.in", strerror(errno));
+    }
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < 3; j++) {
+            fscanf(fp, "%lf", &positions[i][j]);
         }
-        array = realloc(array, size / pow(2, i) * sizeof(*array));
     }
-    return array;
-}
-
-// Function that calculates error in mean energies for each subset of mean energies
-double calculate_error(double *mean_energies, int size) {
-    double error = 0;
-    double mean = sum(mean_energies, size) / size;
-
-    for (int i = 0; i < size; i++) {
-        error += (mean_energies[i] - mean) * (mean_energies[i] - mean);
-    }
-    return sqrt(error / size);
+    fclose(fp);
 }
 
 void export_positions(Double3D *positions_saved) {
-    FILE *fp = fopen("position_data.txt", "w");
+    FILE *fp = fopen("position_data.out", "w");
     for (int i = 0; i < positions_saved->m; i++) {
         for (int j = 0; j < positions_saved->n; j++) {
             fprintf(fp, "%f %f %f\n",
@@ -382,15 +308,6 @@ void export_positions(Double3D *positions_saved) {
     }
     fclose(fp);
     free(positions_saved->data);
-}
-
-void export_1D_array(char *file_name, double *array, int size) {
-    FILE *fp = fopen(file_name, "w");
-    for (int i = 0; i < size; i++) {
-        fprintf(fp, "%f\n", array[i]);
-    }
-    fclose(fp);
-    free(array);
 }
 
 void progress_bar(double progress, double time_taken) {

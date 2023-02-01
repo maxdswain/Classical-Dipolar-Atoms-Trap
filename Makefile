@@ -2,10 +2,13 @@ CC = gcc
 CFLAGS = -Wall -g -O3
 LDLIBS = -ltoml -lgsl -lgslcblas -lm
 
-all: main
+all: main reblock
 
-main: src/main.c
+main: src/main.c src/shared.c
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
+reblock: src/reblock.c src/shared.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 clean:
-	rm main *.txt
+	rm main reblock *.txt *.out

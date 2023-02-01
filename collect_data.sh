@@ -6,7 +6,7 @@ sed -i "/seed/s/= .*/= ${seeds[0]}/" input.toml
 ./main
 for i in {1..4}
 do
-    mv energy_data.txt energy_data_$i.txt
+    mv energy_data.out energy_data_$i.out
     sed -i "/seed/s/= .*/= ${seeds[$i]}/" input.toml
     ./main
 done
