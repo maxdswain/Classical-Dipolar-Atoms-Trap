@@ -35,7 +35,8 @@ double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M,
                             double FREQUENCY_TRANSVERSE, double WALL_REPULSION_COEFFICIENT, int WALL_REPULSION_ORDER,
                             int SAMPLING_RATE, int SEED);
 void read_configuration(double **positions, int N);
-void export_positions(Double3D *positions_saved);
+double *calculate_density(Double3D *pos_saved);
+void export_positions(Double3D *pos_saved);
 void progress_bar(double progress, double time_taken);
 
 int main(int argc, char **argv) {
@@ -228,9 +229,8 @@ double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M,
     int accepted = 0;
     double trial_positions[3], energy_difference, energy_previous;
     double *energies_saved = malloc(ITERATIONS / SAMPLING_RATE * sizeof(*energies_saved));
-    Double3D positions_saved = {ITERATIONS / SAMPLING_RATE, N, 3};
-    positions_saved.data =
-        malloc(positions_saved.m * positions_saved.n * positions_saved.l * sizeof(*positions_saved.data));
+    Double3D pos_saved = {ITERATIONS / SAMPLING_RATE, N, 3};
+    pos_saved.data = malloc(pos_saved.m * pos_saved.n * pos_saved.l * sizeof(*pos_saved.data));
     /* Main code of the Metropolis-Hasting algorithm. The previous energy is calculated then trial positions
     are generated for index particle, the difference in energy between the previous energy and the energy
     with the trial positions is calculated and if the energy different is less than or equal to 0 the trial
@@ -267,8 +267,8 @@ double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M,
                                            FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT, WALL_REPULSION_ORDER);
                 for (int j = 0; j < N; j++) {
                     for (int k = 0; k < 3; k++) {
-                        positions_saved.data[i / SAMPLING_RATE * (positions_saved.n * positions_saved.l) +
-                                             j * positions_saved.l + k] = positions[j][k];
+                        pos_saved.data[i / SAMPLING_RATE * (pos_saved.n * pos_saved.l) + j * pos_saved.l + k] =
+                            positions[j][k];
                     }
                 }
             }
@@ -277,7 +277,7 @@ double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M,
         progress_bar(((double)i + 1) / (double)ITERATIONS, time_taken);
     }
     gsl_rng_free(r);
-    export_positions(&positions_saved);
+    export_positions(&pos_saved);
     double percent_accepted = 100 * (double)accepted / (double)(ITERATIONS * N);
     printf("\n\npercent accepted: %.2f%%\nnumber accepted: %d\n\n\n", percent_accepted, accepted);
     return energies_saved;
@@ -296,18 +296,70 @@ void read_configuration(double **positions, int N) {
     fclose(fp);
 }
 
-void export_positions(Double3D *positions_saved) {
+double max_position(Double3D *pos_saved, int index) {
+    for (int i = 0; i < pos_saved->n; i++) {
+        if (pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + index] <
+            pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + i * pos_saved->l + index]) {
+            pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + index] =
+                pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + i * pos_saved->l + index];
+        }
+    }
+    return pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + index];
+}
+
+double min_position(Double3D *pos_saved, int index) {
+    for (int i = 0; i < pos_saved->n; i++) {
+        if (pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + index] >
+            pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + i * pos_saved->l + index]) {
+            pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + index] =
+                pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + i * pos_saved->l + index];
+        }
+    }
+    return pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + index];
+}
+
+double *calculate_density(Double3D *pos_saved) {
+    int bins = 25;  // Has to be a square number
+    // Calculate maximum-minimum x y positions - use area bit larger than this for bin area
+    double max_x = max_position(pos_saved, 0);
+    double min_x = min_position(pos_saved, 0);
+    double bin_length_x = 1.2 * (max_x - min_x) / (double)bins;
+    double start_x = 0.6 * (max_x - min_x) + min_x;
+    double max_y = max_position(pos_saved, 1);
+    double min_y = min_position(pos_saved, 1);
+    double bin_length_y = 1.2 * (max_y - min_y) / (double)bins;
+    double start_y = 0.6 * (max_y - min_y) + min_y;
+    // Loop over all bin widths and calculate density
+    double *density = malloc(bins * sizeof(*density));
+    for (int i = 0; i < bins; i++) {
+        int counter = 0;
+        double i_x = i % (int)sqrt(bins);
+        double i_y = i / sqrt(bins);
+        for (int j = 0; j < pos_saved->n; j++) {
+            // If atom in bin add one to counter
+            double x = pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + j * pos_saved->l];
+            double y = pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + j * pos_saved->l + 1];
+            if ((x >= start_x + i_x * bin_length_x && x < start_x + (i_x + 1) * bin_length_x) &&
+                (y >= start_y + i_y * bin_length_y && y < start_y + (i_y + 1) * bin_length_y)) {
+                counter++;
+            }
+        }
+        density[i] = counter;
+    }
+    return density;
+}
+
+void export_positions(Double3D *pos_saved) {
     FILE *fp = fopen("position_data.out", "w");
-    for (int i = 0; i < positions_saved->m; i++) {
-        for (int j = 0; j < positions_saved->n; j++) {
-            fprintf(fp, "%f %f %f\n",
-                    positions_saved->data[i * (positions_saved->n * positions_saved->l) + j * positions_saved->l],
-                    positions_saved->data[i * (positions_saved->n * positions_saved->l) + j * positions_saved->l + 1],
-                    positions_saved->data[i * (positions_saved->n * positions_saved->l) + j * positions_saved->l + 2]);
+    for (int i = 0; i < pos_saved->m; i++) {
+        for (int j = 0; j < pos_saved->n; j++) {
+            fprintf(fp, "%f %f %f\n", pos_saved->data[i * (pos_saved->n * pos_saved->l) + j * pos_saved->l],
+                    pos_saved->data[i * (pos_saved->n * pos_saved->l) + j * pos_saved->l + 1],
+                    pos_saved->data[i * (pos_saved->n * pos_saved->l) + j * pos_saved->l + 2]);
         }
     }
     fclose(fp);
-    free(positions_saved->data);
+    free(pos_saved->data);
 }
 
 void progress_bar(double progress, double time_taken) {
