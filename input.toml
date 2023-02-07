@@ -1,9 +1,9 @@
 [simulation_properties]
 particles = 100
-repetitions = 40000
-minimization_iterations = 20
+repetitions = 320000
+minimization_iterations = 1000
 temperature = 1.0e-3                           # Temperature in Kelvin
-sigma = 1.0e-3                                 # Should be a value so that the acceptance rate is 50%
+sigma = 2.6e-4                                 # Should be a value so that the acceptance rate is 50%
 mass = 1.0
 dipole_moment = 0.7071067811865476             # 0.5 in SI
 dipole_unit_vector = [
@@ -13,12 +13,12 @@ dipole_unit_vector = [
 ]
 trapping_frequency_z = 50                      # 50 in Hz 
 trapping_frequency_transverse = 1              # 1 in Hz
-wall_repulsion_coefficient = 1.0e-3
+wall_repulsion_coefficient = 1.0e-2
 sampling_rate = 5
 blocking_transformation_number = 3
 cutoff = 0                                     # cutoff * sample_rate is the iteration at which energies are discarded - be generous in choosing the value
 order_repulsive_wall = 6
-monte_carlo_read_configuration = true
+monte_carlo_read_configuration = false
 output_basin_txt_file = true
 output_pd_energy_and_coordinates_file = true
 ground_state_coordinates_for_QMC = false
