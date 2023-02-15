@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from collections.abc import Callable
+from itertools import combinations
 import os
 
 try:
@@ -65,26 +66,28 @@ def plot_positions_iterations(positions: np.ndarray[np.float64], component: int)
 
 
 def plot_energies_iterations(energies: np.ndarray[np.float64]) -> None:
-    _, ax = plt.subplots()
+    _, ax = plt.subplots(figsize=(15, 9))
     ax.plot(np.linspace(CUTOFF * SAMPLING_RATE, ITERATIONS, len(energies)), energies)
     ax.set(xlabel="Iterations", ylabel="Energy")
-    plt.show()
+    plt.savefig("energies_iterations.png")
 
 
 def plot_many_energies_iterations() -> None:
-    _, ax = plt.subplots()
+    _, ax = plt.subplots(figsize=(15, 9))
     energy_data = [np.loadtxt(f) for f in os.listdir(".") if os.path.isfile(f) and "energy" in f]
     for energies in energy_data:
         ax.plot(np.linspace(CUTOFF * SAMPLING_RATE, ITERATIONS, len(energies)), energies)
     ax.set(xlabel="Iterations", ylabel="Energy")
-    plt.show()
+    plt.savefig("many_energies_iterations.png")
 
 
-def plot_snapshot(positions: np.ndarray[np.float64], iteration: int) -> None:
-    _, ax = plt.subplots()
-    ax.scatter(positions[iteration, :, 0], positions[iteration, :, 1], c="black")
-    ax.set(xlabel="$x$ Positions", ylabel="$y$ Positions")
-    plt.show()
+def plot_snapshots(positions: np.ndarray[np.float64], iteration: int) -> None:
+    _, axs = plt.subplots(1, 3, figsize=(15, 4))
+    for i, (coord, x) in enumerate(zip(combinations("xyz", 2), combinations(range(3), 2))):
+        axs[i].scatter(positions[iteration, :, x[0]], positions[iteration, :, x[1]], c="black")
+        axs[i].set(xlabel=f"${coord[0]}$ Positions", ylabel=f"${coord[1]}$ Positions")
+    plt.tight_layout()
+    plt.savefig("snapshots.png")
 
 
 def plot_error(errors: np.ndarray[np.float64]) -> None:
@@ -96,7 +99,7 @@ def plot_error(errors: np.ndarray[np.float64]) -> None:
 
 def plot_potential() -> None:
     _, ax = plt.subplots()
-    r = np.linspace(0.1, 0.3, 101)
+    r = np.linspace(0.1, 0.3, 101)  # Change ranges of values to ones relevant to system length scales
     lennard_jones = WALL_REPULSION_COEFFICIENT * r**-ORDER_REPULSIVE_WALL
     dd_interaction = -2 * DIPOLE_MOMENT**2 * r**-3
     ax.plot(r, dd_interaction + lennard_jones, label="Combined Potential")
@@ -130,3 +133,7 @@ def plot_potentials() -> None:
 if __name__ == "__main__":
     positions, energies, errors = read_simulation_data()
     distances = np.linalg.norm(positions[-1], axis=1)
+
+    plot_energies_iterations(energies)
+    plot_snapshots(positions, -1)
+    # plot_many_energies_iterations()
