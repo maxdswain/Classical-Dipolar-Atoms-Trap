@@ -55,3 +55,5 @@ dkms.conf
 
 # Simulation data files
 *.txt
+*.in
+*.png
