@@ -23,7 +23,6 @@ void position_random_generation(double **positions, int N, double T, double M, d
                                 double FREQUENCY_TRANSVERSE, int SEED);
 double magnitude(double *a, int D);
 double dot_product(double *a, double *b, int D);
-void free_2D_array(double **array, int size);
 double calculate_energy(double **positions, double *position, int N, double M, int index, double DIPOLE_MOMENT,
                         double *DIPOLE_UNIT_VECTOR, double FREQUENCY_Z, double FREQUENCY_TRANSVERSE,
                         double WALL_REPULSION_COEFFICIENT, int WALL_REPULSION_ORDER);
@@ -34,8 +33,6 @@ double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M,
                             double DIPOLE_MOMENT, double *DIPOLE_UNIT_VECTOR, double FREQUENCY_Z,
                             double FREQUENCY_TRANSVERSE, double WALL_REPULSION_COEFFICIENT, int WALL_REPULSION_ORDER,
                             int SAMPLING_RATE, int SEED);
-int *calculate_density(Double3D *pos_saved);
-int *calculate_pair_density(Double3D *pos_saved);
 void export_positions(Double3D *pos_saved);
 void progress_bar(double progress, double time_taken);
 
@@ -159,13 +156,6 @@ double dot_product(double *a, double *b, int D) {
     return result;
 }
 
-void free_2D_array(double **array, int size) {
-    for (int i = 0; i < size; i++) {
-        free(array[i]);
-    }
-    free(array);
-}
-
 // Function that calculates the potential energy of a given single atom
 double calculate_energy(double **positions, double *position, int N, double M, int index, double DIPOLE_MOMENT,
                         double *DIPOLE_UNIT_VECTOR, double FREQUENCY_Z, double FREQUENCY_TRANSVERSE,
@@ -281,92 +271,6 @@ double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M,
     double percent_accepted = 100 * (double)accepted / (double)(ITERATIONS * N);
     printf("\n\npercent accepted: %.2f%%\nnumber accepted: %d\n\n\n", percent_accepted, accepted);
     return energies_saved;
-}
-
-double max_position(Double3D *pos_saved, int index) {
-    for (int i = 0; i < pos_saved->n; i++) {
-        if (pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + index] <
-            pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + i * pos_saved->l + index]) {
-            pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + index] =
-                pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + i * pos_saved->l + index];
-        }
-    }
-    return pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + index];
-}
-
-double min_position(Double3D *pos_saved, int index) {
-    for (int i = 0; i < pos_saved->n; i++) {
-        if (pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + index] >
-            pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + i * pos_saved->l + index]) {
-            pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + index] =
-                pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + i * pos_saved->l + index];
-        }
-    }
-    return pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + index];
-}
-
-int *calculate_density(Double3D *pos_saved) {
-    int bins = 25;  // Has to be a square number
-    // Calculate maximum-minimum x y positions - use area bit larger than this for bin area
-    double max_x = max_position(pos_saved, 0);
-    double min_x = min_position(pos_saved, 0);
-    double bin_length_x = 1.2 * (max_x - min_x) / (double)bins;
-    double start_x = 0.6 * (max_x - min_x) + min_x;
-    double max_y = max_position(pos_saved, 1);
-    double min_y = min_position(pos_saved, 1);
-    double bin_length_y = 1.2 * (max_y - min_y) / (double)bins;
-    double start_y = 0.6 * (max_y - min_y) + min_y;
-    // Loop over all bin widths and calculate density
-    int *density = malloc(bins * sizeof(*density));
-    for (int i = 0; i < bins; i++) {
-        int counter = 0;
-        double i_x = i % (int)sqrt(bins);
-        double i_y = i / sqrt(bins);
-        for (int j = 0; j < pos_saved->n; j++) {
-            // If atom in bin add one to counter
-            double x = pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + j * pos_saved->l];
-            double y = pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + j * pos_saved->l + 1];
-            if ((x >= start_x + i_x * bin_length_x && x < start_x + (i_x + 1) * bin_length_x) &&
-                (y >= start_y + i_y * bin_length_y && y < start_y + (i_y + 1) * bin_length_y)) {
-                counter++;
-            }
-        }
-        density[i] = counter;
-    }
-    return density;
-}
-
-int *calculate_pair_density(Double3D *pos_saved) {
-    int bins = 25;  // Has to be a square number
-    // Calculate maximum-minimum x y positions - use area bit larger than this for bin area
-    double max_x = max_position(pos_saved, 0);
-    double min_x = min_position(pos_saved, 0);
-    double bin_length_x = 1.2 * (max_x - min_x) / (double)bins;
-    double start_x = 0.6 * (max_x - min_x) + min_x;
-    double max_y = max_position(pos_saved, 1);
-    double min_y = min_position(pos_saved, 1);
-    double bin_length_y = 1.2 * (max_y - min_y) / (double)bins;
-    double start_y = 0.6 * (max_y - min_y) + min_y;
-    // Loop over all bin widths and calculate density
-    int *density = malloc(bins * sizeof(*density));
-    for (int i = 0; i < bins; i++) {
-        int counter = 0;
-        double i_x = i % (int)sqrt(bins);
-        double i_y = i / sqrt(bins);
-        for (int j = 0; j < pos_saved->n; j++) {
-            // If atom in bin add one to counter
-            double x = pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + j * pos_saved->l];
-            double y = pos_saved->data[(pos_saved->m - 1) * (pos_saved->n * pos_saved->l) + j * pos_saved->l + 1];
-            if ((x >= start_x + i_x * bin_length_x && x < start_x + (i_x + 1) * bin_length_x) &&
-                (y >= start_y + i_y * bin_length_y && y < start_y + (i_y + 1) * bin_length_y)) {
-                for (int k = 0; k < j; k++) {
-                    counter++;
-                }
-            }
-        }
-        density[i] = counter;
-    }
-    return density;
 }
 
 void export_positions(Double3D *pos_saved) {

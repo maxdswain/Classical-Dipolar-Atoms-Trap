@@ -31,3 +31,10 @@ void read_2D_array(char *file_name, double **array, int N) {
     }
     fclose(fp);
 }
+
+void free_2D_array(double **array, int size) {
+    for (int i = 0; i < size; i++) {
+        free(array[i]);
+    }
+    free(array);
+}

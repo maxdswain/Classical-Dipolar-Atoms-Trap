@@ -5,7 +5,7 @@ minimization_iterations = 1000
 temperature = 1.0e-3                           # Temperature in Kelvin
 sigma = 2.6e-4                                 # Should be a value so that the acceptance rate is 50%
 mass = 1.0
-dipole_moment = 0.7071067811865476             # 0.5 in SI
+dipole_moment = 0.7071067811865476             # sqrt 0.5
 dipole_unit_vector = [
     0.0,
     0.0,
@@ -17,6 +17,9 @@ wall_repulsion_coefficient = 1.0e-2
 sampling_rate = 5
 blocking_transformation_number = 3
 cutoff = 0                                     # cutoff * sample_rate is the iteration at which energies are discarded - be generous in choosing the value
+bins_x = 10                                    # bins must be a square number
+bins_y = 10
+bins_z = 1
 order_repulsive_wall = 6
 monte_carlo_read_configuration = false
 output_basin_txt_file = true

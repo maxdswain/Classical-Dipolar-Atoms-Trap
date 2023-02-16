@@ -37,6 +37,7 @@
 *.hex
 main
 reblock
+density
 
 # Debug files
 *.dSYM/
