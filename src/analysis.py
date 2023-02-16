@@ -26,6 +26,8 @@ ORDER_REPULSIVE_WALL = input["simulation_properties"]["order_repulsive_wall"]
 WALL_REPULSION_COEFFICIENT = input["simulation_properties"]["wall_repulsion_coefficient"]
 DIPOLE_MOMENT = input["simulation_properties"]["dipole_moment"]
 
+round_to_n = lambda x, n: round(x, -int(np.floor(np.log10(np.abs(x)))) + (n - 1))
+
 
 def read_simulation_data() -> tuple[np.ndarray[np.float64], np.ndarray[np.float64], np.ndarray[np.float64]]:
     positions = np.loadtxt("position_data.out").reshape(ITERATIONS // SAMPLING_RATE, N, 3)
@@ -69,6 +71,7 @@ def plot_energies_iterations(energies: np.ndarray[np.float64]) -> None:
     _, ax = plt.subplots(figsize=(15, 9))
     ax.plot(np.linspace(CUTOFF * SAMPLING_RATE, ITERATIONS, len(energies)), energies)
     ax.set(xlabel="Iterations", ylabel="Energy")
+    plt.ylim(0, 5 * round_to_n(energies[-1], 1))
     plt.savefig("energies_iterations.png")
 
 
