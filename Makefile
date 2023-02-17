@@ -8,4 +8,4 @@ all: main reblock density
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 clean:
-	rm main reblock *.txt *.out
+	rm main reblock density *.txt *.out *.png
