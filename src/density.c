@@ -94,23 +94,21 @@ double *calculate_density(double **configuration, int N, int BINS_X, int BINS_Y,
     double min_z = min_position(configuration, 2, N);
     double bin_length_z = 1.1 * (max_position(configuration, 2, N) - min_z) / (double)BINS_Z;
     // Loop over all bin widths and calculate density
-    double *density = malloc(BINS_X * BINS_Y * BINS_Z * sizeof(*density));
+    double *density = calloc(BINS_X * BINS_Y * BINS_Z, sizeof(*density));
     for (int i = 0; i < BINS_X; i++) {
         for (int j = 0; j < BINS_Y; j++) {
             for (int k = 0; k < BINS_Z; k++) {
-                int counter = 0;
                 for (int n = 0; n < N; n++) {
-                    // If atom in bin add one to counter
+                    // If atom in bin add to density
                     double x = configuration[n][0];
                     double y = configuration[n][1];
                     double z = configuration[n][2];
                     if ((x >= 1.05 * min_x + i * bin_length_x && x < 1.05 * min_x + (i + 1) * bin_length_x) &&
                         (y >= 1.05 * min_y + j * bin_length_y && y < 1.05 * min_y + (j + 1) * bin_length_y) &&
                         (z >= 1.05 * min_z + k * bin_length_z && z < 1.05 * min_z + (k + 1) * bin_length_z)) {
-                        counter++;
+                        density[i * (BINS_Y * BINS_Z) + j * BINS_Z + k]++;
                     }
                 }
-                density[i * (BINS_Y * BINS_Z) + j * BINS_Z + k] = counter;
             }
         }
     }
@@ -126,46 +124,22 @@ double *calculate_pair_density(double **configuration, int N, int BINS_X, int BI
     double min_z = min_position(configuration, 2, N);
     double bin_length_z = 1.1 * (max_position(configuration, 2, N) - min_z) / (double)BINS_Z;
     // Loop over all bin widths and calculate pair density
-    double *pair_density = malloc(BINS_X * BINS_Y * BINS_Z * BINS_X * BINS_Y * BINS_Z * sizeof(*pair_density));
-    for (int i = 0; i < BINS_X; i++) {
-        for (int j = 0; j < BINS_Y; j++) {
-            for (int k = 0; k < BINS_Z; k++) {
-                for (int l = 0; l < BINS_X; l++) {
-                    for (int m = 0; m < BINS_Y; m++) {
-                        for (int n = 0; n < BINS_Z; n++) {
-                            int counter = 0;
-                            // Pairwise sum over both bins, then counting pairs
-                            for (int a = 0; a < N; a++) {
-                                double x = configuration[a][0];
-                                double y = configuration[a][1];
-                                double z = configuration[a][2];
-                                if ((x >= 1.05 * min_x + i * bin_length_x &&
-                                     x < 1.05 * min_x + (i + 1) * bin_length_x) &&
-                                    (y >= 1.05 * min_y + j * bin_length_y &&
-                                     y < 1.05 * min_y + (j + 1) * bin_length_y) &&
-                                    (z >= 1.05 * min_z + k * bin_length_z &&
-                                     z < 1.05 * min_z + (k + 1) * bin_length_z)) {
-                                    for (int b = 0; b < a; b++) {
-                                        x = configuration[b][0];
-                                        y = configuration[b][1];
-                                        z = configuration[b][2];
-                                        if ((x >= 1.05 * min_x + l * bin_length_x &&
-                                             x < 1.05 * min_x + (l + 1) * bin_length_x) &&
-                                            (y >= 1.05 * min_y + m * bin_length_y &&
-                                             y < 1.05 * min_y + (m + 1) * bin_length_y) &&
-                                            (z >= 1.05 * min_z + n * bin_length_z &&
-                                             z < 1.05 * min_z + (n + 1) * bin_length_z)) {
-                                            counter++;
-                                        }
-                                    }
-                                }
-                            }
-                            // Store pair density by storing counts for each i, j, k, l, m, n in 6D array in 1D
-                            pair_density[i * (BINS_Y * BINS_Z * BINS_X * BINS_Y * BINS_Z) +
-                                         j * (BINS_Z * BINS_X * BINS_Y * BINS_Z) + k * (BINS_X * BINS_Y * BINS_Z) +
-                                         l * (BINS_Y * BINS_Z) + m * BINS_Z + n] = counter;
-                        }
-                    }
+    double *pair_density = calloc(BINS_X * BINS_Y * BINS_Z * BINS_X * BINS_Y * BINS_Z, sizeof(*pair_density));
+    for (int i = 0; i < N; i++) {
+        int x_bin_i = (configuration[i][0] - (1.05 * min_x)) / bin_length_x;
+        int y_bin_i = (configuration[i][1] - (1.05 * min_y)) / bin_length_y;
+        int z_bin_i = (configuration[i][2] - (1.05 * min_z)) / bin_length_z;
+        if ((x_bin_i >= -1 || x_bin_i + 1 < BINS_X) && (y_bin_i >= -1 || y_bin_i + 1 < BINS_Y) &&
+            (z_bin_i >= -1 || z_bin_i + 1 < BINS_Z)) {
+            for (int j = 0; j < i; j++) {
+                int x_bin_j = (configuration[j][0] - (1.05 * min_x)) / bin_length_x;
+                int y_bin_j = (configuration[j][1] - (1.05 * min_y)) / bin_length_y;
+                int z_bin_j = (configuration[j][2] - (1.05 * min_z)) / bin_length_z;
+                if ((x_bin_j >= -1 || x_bin_j + 1 < BINS_X) && (y_bin_j >= -1 || y_bin_j + 1 < BINS_Y) &&
+                    (z_bin_j >= -1 || z_bin_j + 1 < BINS_Z)) {
+                    pair_density[x_bin_i * (BINS_Y * BINS_Z * BINS_X * BINS_Y * BINS_Z) +
+                                 y_bin_i * (BINS_Z * BINS_X * BINS_Y * BINS_Z) + z_bin_i * (BINS_X * BINS_Y * BINS_Z) +
+                                 x_bin_j * (BINS_Y * BINS_Z) + y_bin_j * BINS_Z + z_bin_j]++;
                 }
             }
         }
