@@ -95,21 +95,13 @@ double *calculate_density(double **configuration, int N, int BINS_X, int BINS_Y,
     double bin_length_z = 1.1 * (max_position(configuration, 2, N) - min_z) / (double)BINS_Z;
     // Loop over all bin widths and calculate density
     double *density = calloc(BINS_X * BINS_Y * BINS_Z, sizeof(*density));
-    for (int i = 0; i < BINS_X; i++) {
-        for (int j = 0; j < BINS_Y; j++) {
-            for (int k = 0; k < BINS_Z; k++) {
-                for (int n = 0; n < N; n++) {
-                    // If atom in bin add to density
-                    double x = configuration[n][0];
-                    double y = configuration[n][1];
-                    double z = configuration[n][2];
-                    if ((x >= 1.05 * min_x + i * bin_length_x && x < 1.05 * min_x + (i + 1) * bin_length_x) &&
-                        (y >= 1.05 * min_y + j * bin_length_y && y < 1.05 * min_y + (j + 1) * bin_length_y) &&
-                        (z >= 1.05 * min_z + k * bin_length_z && z < 1.05 * min_z + (k + 1) * bin_length_z)) {
-                        density[i * (BINS_Y * BINS_Z) + j * BINS_Z + k]++;
-                    }
-                }
-            }
+    for (int i = 0; i < N; i++) {
+        int x_bin = (configuration[i][0] - (1.05 * min_x)) / bin_length_x;
+        int y_bin = (configuration[i][1] - (1.05 * min_y)) / bin_length_y;
+        int z_bin = (configuration[i][2] - (1.05 * min_z)) / bin_length_z;
+        if ((x_bin >= -1 || x_bin + 1 < BINS_X) && (y_bin >= -1 || y_bin + 1 < BINS_Y) &&
+            (z_bin >= -1 || z_bin + 1 < BINS_Z)) {
+            density[x_bin * (BINS_Y * BINS_Z) + y_bin * BINS_Z + z_bin]++;
         }
     }
     return density;
