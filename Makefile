@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -g -O3
+CFLAGS = -Wall -g -Ofast -march=native
 LDLIBS = -ltoml -lgsl -lgslcblas -lm
 
 all: main reblock density
