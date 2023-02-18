@@ -16,7 +16,7 @@ typedef struct {
 } Double3D;
 
 void read_config(int *N, int *ITERATIONS, double *T, double *M, double *SIGMA, double *DIPOLE_MOMENT,
-                 double *DIPOLE_UNIT_VECTOR, double *FREQUENCY_Z, double *FREQUENCY_TRANSVERSE,
+                 double *DIPOLE_VECTOR, double *FREQUENCY_Z, double *FREQUENCY_TRANSVERSE,
                  double *WALL_REPULSION_COEFFICIENT, int *WALL_REPULSION_ORDER, int *SAMPLING_RATE, int *READ_CONFIG,
                  int *SEED);
 void position_random_generation(double **positions, int N, double T, double M, double FREQUENCY_Z,
@@ -39,18 +39,16 @@ void progress_bar(double progress, double time_taken);
 int main(int argc, char **argv) {
     // Declare then read constants from an input file and print them out
     int N, ITERATIONS, SAMPLING_RATE, WALL_REPULSION_ORDER, READ_CONFIG, SEED;
-    double T, M, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR[3], FREQUENCY_Z, FREQUENCY_TRANSVERSE,
-        WALL_REPULSION_COEFFICIENT;
+    double T, M, SIGMA, DIPOLE_MOMENT, DIPOLE_VECTOR[3], FREQUENCY_Z, FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT;
 
-    read_config(&N, &ITERATIONS, &T, &M, &SIGMA, &DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR, &FREQUENCY_Z,
-                &FREQUENCY_TRANSVERSE, &WALL_REPULSION_COEFFICIENT, &WALL_REPULSION_ORDER, &SAMPLING_RATE, &READ_CONFIG,
-                &SEED);
+    read_config(&N, &ITERATIONS, &T, &M, &SIGMA, &DIPOLE_MOMENT, DIPOLE_VECTOR, &FREQUENCY_Z, &FREQUENCY_TRANSVERSE,
+                &WALL_REPULSION_COEFFICIENT, &WALL_REPULSION_ORDER, &SAMPLING_RATE, &READ_CONFIG, &SEED);
     printf(
         "Current variables set in input file:\nN: %d\niterations: %d\ntemperature: %f\nmass: %f\nsigma: "
-        "%e\ndipole moment magnitude: %f\ndipole unit vector: %f %f %f\nfrequency_z: %f\nfrequency_transverse: "
+        "%e\ndipole moment magnitude: %f\ndipole vector: %f %f %f\nfrequency_z: %f\nfrequency_transverse: "
         "%f\nwall repulsion coefficient: %f\nwall repulsion order: %d\n\n",
-        N, ITERATIONS, T, M, SIGMA, DIPOLE_MOMENT, DIPOLE_UNIT_VECTOR[0], DIPOLE_UNIT_VECTOR[1], DIPOLE_UNIT_VECTOR[2],
-        FREQUENCY_Z, FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT, WALL_REPULSION_ORDER);
+        N, ITERATIONS, T, M, SIGMA, DIPOLE_MOMENT, DIPOLE_VECTOR[0], DIPOLE_VECTOR[1], DIPOLE_VECTOR[2], FREQUENCY_Z,
+        FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT, WALL_REPULSION_ORDER);
 
     // Run simulation using values read from input file then calculate total energy of the last configuration
     double **positions = malloc(N * sizeof(**positions));
@@ -62,9 +60,9 @@ int main(int argc, char **argv) {
     } else {
         position_random_generation(positions, N, T, M, FREQUENCY_Z, FREQUENCY_TRANSVERSE, SEED);
     }
-    double *energies_saved = metropolis_hastings(positions, ITERATIONS, N, M, T, SIGMA, DIPOLE_MOMENT,
-                                                 DIPOLE_UNIT_VECTOR, FREQUENCY_Z, FREQUENCY_TRANSVERSE,
-                                                 WALL_REPULSION_COEFFICIENT, WALL_REPULSION_ORDER, SAMPLING_RATE, SEED);
+    double *energies_saved = metropolis_hastings(positions, ITERATIONS, N, M, T, SIGMA, DIPOLE_MOMENT, DIPOLE_VECTOR,
+                                                 FREQUENCY_Z, FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT,
+                                                 WALL_REPULSION_ORDER, SAMPLING_RATE, SEED);
 
     printf("Energy of last sampled configuration: %e\n", energies_saved[ITERATIONS / SAMPLING_RATE - 1]);
     export_1D_array("energy_data.out", energies_saved, ITERATIONS / SAMPLING_RATE);
@@ -72,7 +70,7 @@ int main(int argc, char **argv) {
 }
 
 void read_config(int *N, int *ITERATIONS, double *T, double *M, double *SIGMA, double *DIPOLE_MOMENT,
-                 double *DIPOLE_UNIT_VECTOR, double *FREQUENCY_Z, double *FREQUENCY_TRANSVERSE,
+                 double *DIPOLE_VECTOR, double *FREQUENCY_Z, double *FREQUENCY_TRANSVERSE,
                  double *WALL_REPULSION_COEFFICIENT, int *WALL_REPULSION_ORDER, int *SAMPLING_RATE, int *READ_CONFIG,
                  int *SEED) {
     FILE *fp = fopen("input.toml", "r");  // Read and parse toml file
@@ -96,13 +94,12 @@ void read_config(int *N, int *ITERATIONS, double *T, double *M, double *SIGMA, d
     *M = mass.u.d;
     toml_datum_t trial_sigma = toml_double_in(properties, "sigma");
     *SIGMA = trial_sigma.u.d;
-    toml_datum_t dipole_moment_magnitude = toml_double_in(properties, "dipole_moment");
-    *DIPOLE_MOMENT = dipole_moment_magnitude.u.d;
-    toml_array_t *dipole_unit_vector_array = toml_array_in(properties, "dipole_unit_vector");
+    toml_array_t *dipole_vector_array = toml_array_in(properties, "dipole_vector");
     for (int i = 0; i < 3; i++) {
-        toml_datum_t toml_dipole_unit_vector = toml_double_at(dipole_unit_vector_array, i);
-        DIPOLE_UNIT_VECTOR[i] = toml_dipole_unit_vector.u.d;
+        toml_datum_t toml_dipole_vector = toml_double_at(dipole_vector_array, i);
+        DIPOLE_VECTOR[i] = toml_dipole_vector.u.d;
     }
+    *DIPOLE_MOMENT = magnitude(DIPOLE_VECTOR, 3);
     toml_datum_t trapping_frequency_z = toml_double_in(properties, "trapping_frequency_z");
     *FREQUENCY_Z = trapping_frequency_z.u.d;
     toml_datum_t trapping_frequency_transverse = toml_double_in(properties, "trapping_frequency_transverse");

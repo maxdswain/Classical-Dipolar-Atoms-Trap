@@ -24,7 +24,7 @@ BTN = input["simulation_properties"]["blocking_transformation_number"]
 CUTOFF = input["simulation_properties"]["cutoff"]
 ORDER_REPULSIVE_WALL = input["simulation_properties"]["order_repulsive_wall"]
 WALL_REPULSION_COEFFICIENT = input["simulation_properties"]["wall_repulsion_coefficient"]
-DIPOLE_MOMENT = input["simulation_properties"]["dipole_moment"]
+DIPOLE_MOMENT = np.linalg.norm(input["simulation_properties"]["dipole_vector"])
 
 round_to_n = lambda x, n: round(x, -int(np.floor(np.log10(np.abs(x)))) + (n - 1))
 
@@ -81,6 +81,7 @@ def plot_many_energies_iterations() -> None:
     for energies in energy_data:
         ax.plot(np.linspace(CUTOFF * SAMPLING_RATE, ITERATIONS, len(energies)), energies)
     ax.set(xlabel="Iterations", ylabel="Energy")
+    plt.ylim(0.9 * round_to_n(energy_data[0][-1], 1), 1.5 * round_to_n(energy_data[0][-1], 1))
     plt.savefig("many_energies_iterations.png")
 
 
@@ -119,7 +120,7 @@ def plot_potential() -> None:
 
 def plot_potentials() -> None:
     _, ax = plt.subplots()
-    r = np.linspace(0.1, 0.3, 101)
+    r = np.linspace(1, 6, 101)  # Change ranges of values to ones relevant to system length scales
     for x in [WALL_REPULSION_COEFFICIENT * 10**i for i in range(-2, 3)]:
         potential = x * r**-ORDER_REPULSIVE_WALL - 2 * DIPOLE_MOMENT**2 * r**-3
         ax.plot(r, potential, label=f"Potential for $c_6={x}$")
