@@ -86,7 +86,14 @@ double *read_energies(int ITERATIONS, int SAMPLING_RATE) {
     }
     double *energies = malloc(ITERATIONS / SAMPLING_RATE * sizeof(*energies));
     for (int i = 0; i < ITERATIONS / SAMPLING_RATE; i++) {
-        fscanf(fp, "%lf", &energies[i]);
+        if (fscanf(fp, "%lf", &energies[i]) != 1) {
+            char num[(int)((ceil(log10(ITERATIONS / SAMPLING_RATE)) + 1) * sizeof(char))];
+            char errmsg[100] = "There should be a double per line for ";
+            sprintf(num, "%d", ITERATIONS / SAMPLING_RATE);
+            strcat(errmsg, num);
+            strcat(errmsg, " lines");
+            error("energy_data.out is not in the correct format", errmsg);
+        }
     }
     fclose(fp);
     return energies;

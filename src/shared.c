@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,8 +26,16 @@ void read_2D_array(char *file_name, double **array, int N) {
         error(errmsg, strerror(errno));
     }
     for (int i = 0; i < N; i++) {
-        for (int j = 0; j < 3; j++) {
-            fscanf(fp, "%lf", &array[i][j]);
+        if (fscanf(fp, "%lf %lf %lf", &array[i][0], &array[i][1], &array[i][2]) != 3) {
+            char errmsg[100];
+            strcpy(errmsg, file_name);
+            strcat(errmsg, " is not in the correct format");
+            char num[(int)((ceil(log10(N)) + 1) * sizeof(char))];
+            char errmsg2[100] = "There should be 3 doubles per line for ";
+            sprintf(num, "%d", N);
+            strcat(errmsg2, num);
+            strcat(errmsg2, " lines");
+            error(errmsg, errmsg2);
         }
     }
     fclose(fp);
