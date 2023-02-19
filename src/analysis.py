@@ -20,8 +20,6 @@ N = input["simulation_properties"]["particles"]
 ITERATIONS = input["simulation_properties"]["repetitions"]
 T = input["simulation_properties"]["temperature"]
 SAMPLING_RATE = input["simulation_properties"]["sampling_rate"]
-BTN = input["simulation_properties"]["blocking_transformation_number"]
-CUTOFF = input["simulation_properties"]["cutoff"]
 ORDER_REPULSIVE_WALL = input["simulation_properties"]["order_repulsive_wall"]
 WALL_REPULSION_COEFFICIENT = input["simulation_properties"]["wall_repulsion_coefficient"]
 DIPOLE_MOMENT = np.linalg.norm(input["simulation_properties"]["dipole_vector"])
@@ -37,7 +35,7 @@ def read_simulation_data() -> tuple[np.ndarray[np.float64], np.ndarray[np.float6
 
 
 def boltzmann_distribution(energies: np.ndarray[np.float64]) -> Callable[[float], float]:
-    BOLTZMANN_CONSTANT = 2617360049  # Boltzmann constant in defined systems of units based on values in input
+    BOLTZMANN_CONSTANT = 1  # Boltzmann constant in defined systems of units based on values in input.toml
     Z = sum([np.exp(-energy / (BOLTZMANN_CONSTANT * T)) for energy in energies])
     return lambda energy: len(energies) * np.exp(-energy / (BOLTZMANN_CONSTANT * T)) / Z
 
@@ -69,7 +67,7 @@ def plot_positions_iterations(positions: np.ndarray[np.float64], component: int)
 
 def plot_energies_iterations(energies: np.ndarray[np.float64]) -> None:
     _, ax = plt.subplots(figsize=(15, 9))
-    ax.plot(np.linspace(CUTOFF * SAMPLING_RATE, ITERATIONS, len(energies)), energies)
+    ax.plot(np.linspace(0, ITERATIONS, len(energies)), energies)
     ax.set(xlabel="Iterations", ylabel="Energy")
     plt.ylim(0, 5 * round_to_n(energies[-1], 1))
     plt.savefig("energies_iterations.png")
@@ -79,7 +77,7 @@ def plot_many_energies_iterations() -> None:
     _, ax = plt.subplots(figsize=(15, 9))
     energy_data = [np.loadtxt(f) for f in os.listdir(".") if os.path.isfile(f) and "energy" in f]
     for energies in energy_data:
-        ax.plot(np.linspace(CUTOFF * SAMPLING_RATE, ITERATIONS, len(energies)), energies)
+        ax.plot(np.linspace(0, ITERATIONS, len(energies)), energies)
     ax.set(xlabel="Iterations", ylabel="Energy")
     plt.ylim(0.9 * round_to_n(energy_data[0][-1], 1), 1.5 * round_to_n(energy_data[0][-1], 1))
     plt.savefig("many_energies_iterations.png")
@@ -104,10 +102,10 @@ def plot_error(errors: np.ndarray[np.float64]) -> None:
 def plot_potential() -> None:
     _, ax = plt.subplots()
     r = np.linspace(0.1, 0.3, 101)  # Change ranges of values to ones relevant to system length scales
-    lennard_jones = WALL_REPULSION_COEFFICIENT * r**-ORDER_REPULSIVE_WALL
+    repulsive_wall = WALL_REPULSION_COEFFICIENT * r**-ORDER_REPULSIVE_WALL
     dd_interaction = -2 * DIPOLE_MOMENT**2 * r**-3
-    ax.plot(r, dd_interaction + lennard_jones, label="Combined Potential")
-    ax.plot(r, lennard_jones, label="Lennard-Jones Potential")
+    ax.plot(r, dd_interaction + repulsive_wall, label="Combined Potential")
+    ax.plot(r, repulsive_wall, label=rf"$\frac{{1}}{{r^{{{ORDER_REPULSIVE_WALL}}}}}$ Potential")
     ax.plot(r, dd_interaction, label="Dipole-Diple Interaction")
     ax.set(
         xlabel="Difference in Position $r$",
@@ -123,7 +121,7 @@ def plot_potentials() -> None:
     r = np.linspace(1, 6, 101)  # Change ranges of values to ones relevant to system length scales
     for x in [WALL_REPULSION_COEFFICIENT * 10**i for i in range(-2, 3)]:
         potential = x * r**-ORDER_REPULSIVE_WALL - 2 * DIPOLE_MOMENT**2 * r**-3
-        ax.plot(r, potential, label=f"Potential for $c_6={x}$")
+        ax.plot(r, potential, label=f"Potential for $c_{{6}}={x}$")
     ax.set(
         xlabel="Difference in Position $r$",
         ylabel="Potential $V(r)$",
