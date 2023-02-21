@@ -34,10 +34,10 @@ int main(int argc, char **argv) {
     read_2D_array("configuration.out", configuration, N);
 
     double *density = calculate_density(configuration, N, BINS_X, BINS_Y, BINS_Z);
-    export_1D_array("density.out", density, BINS_X * BINS_Y * BINS_Z);
+    export_1D_array("density", density, BINS_X * BINS_Y * BINS_Z);
 
     double *pair_density = calculate_pair_density(configuration, N, BINS_X, BINS_Y, BINS_Z);
-    export_1D_array("pair_density.out", pair_density, BINS_X * BINS_Y * BINS_Z * BINS_X * BINS_Y * BINS_Z);
+    export_1D_array("pair_density", pair_density, BINS_X * BINS_Y * BINS_Z * BINS_X * BINS_Y * BINS_Z);
 
     free_2D_array(configuration, N);
 }

@@ -45,8 +45,8 @@ int main(int argc, char **argv) {
     }
     free(energies);
     free(sliced_energies);
-    export_1D_array("mean_energies.out", mean_energies, size_mean_energies);
-    export_1D_array("error_data.out", errors, MAX_BTN);
+    export_1D_array("mean_energies", mean_energies, size_mean_energies);
+    export_1D_array("error_data", errors, MAX_BTN);
 }
 
 void read_config(int *ITERATIONS, int *SAMPLING_RATE, int *BTN, int *CUTOFF) {
