@@ -9,4 +9,4 @@ all: $(BINS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 clean:
-	rm $(BINS) *.txt *.out *.png
+	rm $(BINS) *.out *.png
