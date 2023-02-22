@@ -2,6 +2,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <toml.h>
 
@@ -20,26 +21,43 @@ int main(int argc, char **argv) {
 
     // Extract last iteration from positions output file.
     char num[(int)((ceil(log10(N)) + 1) * sizeof(char))];
-    char command[50] = "tail -n ";
+    char start_command[50] = "tail -n ";
     sprintf(num, "%d", N);
-    strcat(command, num);
-    strcat(command, " position_data.out > configuration.out");
-    if (system(command)) {
-        error("Cannot run tail system command", strerror(errno));
+    strcat(start_command, num);
+
+    int count = 0;
+    char *file_name = give_file_name("position_data", count);
+    int file_exists = access(file_name, F_OK);
+    while (file_exists == 0) {
+        char *command = malloc(50 * sizeof(*command));
+        strcpy(command, start_command);
+        strcat(command, " ");
+        strcat(command, file_name);
+        strcat(command, " > configuration.out");
+        if (system(command)) {
+            error("Cannot run tail system command", strerror(errno));
+        }
+        free(command);
+        double **configuration = malloc(N * sizeof(**configuration));
+        for (int i = 0; i < N; i++) {
+            configuration[i] = malloc(3 * sizeof(*configuration));
+        }
+        read_2D_array("configuration.out", configuration, N);
+
+        double *density = calculate_density(configuration, N, BINS_X, BINS_Y, BINS_Z);
+        export_1D_array("density", density, BINS_X * BINS_Y * BINS_Z);
+
+        double *pair_density = calculate_pair_density(configuration, N, BINS_X, BINS_Y, BINS_Z);
+        export_1D_array("pair_density", pair_density, BINS_X * BINS_Y * BINS_Z * BINS_X * BINS_Y * BINS_Z);
+        free_2D_array(configuration, N);
+
+        count++;
+        char *temp = give_file_name("position_data", count);
+        memcpy(file_name, temp, 50 * sizeof(*file_name));
+        free(temp);
+        file_exists = access(file_name, F_OK);
     }
-    double **configuration = malloc(N * sizeof(**configuration));
-    for (int i = 0; i < N; i++) {
-        configuration[i] = malloc(3 * sizeof(*configuration));
-    }
-    read_2D_array("configuration.out", configuration, N);
-
-    double *density = calculate_density(configuration, N, BINS_X, BINS_Y, BINS_Z);
-    export_1D_array("density", density, BINS_X * BINS_Y * BINS_Z);
-
-    double *pair_density = calculate_pair_density(configuration, N, BINS_X, BINS_Y, BINS_Z);
-    export_1D_array("pair_density", pair_density, BINS_X * BINS_Y * BINS_Z * BINS_X * BINS_Y * BINS_Z);
-
-    free_2D_array(configuration, N);
+    free(file_name);
 }
 
 void read_config(int *N, int *BINS_X, int *BINS_Y, int *BINS_Z) {
