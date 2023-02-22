@@ -23,6 +23,8 @@ SAMPLING_RATE = input["simulation_properties"]["sampling_rate"]
 ORDER_REPULSIVE_WALL = input["simulation_properties"]["order_repulsive_wall"]
 WALL_REPULSION_COEFFICIENT = input["simulation_properties"]["wall_repulsion_coefficient"]
 DIPOLE_MOMENT = np.linalg.norm(input["simulation_properties"]["dipole_vector"])
+BINS_X = input["simulation_properties"]["bins_x"]
+BINS_Y = input["simulation_properties"]["bins_y"]
 
 round_to_n = lambda x, n: round(x, -int(np.floor(np.log10(np.abs(x)))) + (n - 1))
 
@@ -132,6 +134,22 @@ def plot_potentials() -> None:
     plt.show()
 
 
+def plot_density() -> None:
+    fig, ax = plt.subplots(figsize=(15, 12))
+    density = np.sum(
+        [
+            np.loadtxt(f).reshape(BINS_X, BINS_Y)
+            for f in os.listdir(".")
+            if os.path.isfile(f) and "density" in f and "out" in f and "pair" not in f
+        ],
+        axis=0,
+    )
+    cs = ax.contourf(density, 40, cmap="RdGy")
+    ax.set(yticklabels=[], xticklabels=[])
+    fig.colorbar(cs)
+    plt.savefig("density_contour.png")
+
+
 if __name__ == "__main__":
     positions, energies, errors = read_simulation_data()
     distances = np.linalg.norm(positions[-1], axis=1)
@@ -139,3 +157,4 @@ if __name__ == "__main__":
     plot_energies_iterations(energies)
     plot_snapshots(positions, -1)
     # plot_many_energies_iterations()
+    # plot_density()
