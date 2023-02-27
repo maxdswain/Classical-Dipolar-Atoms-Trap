@@ -29,7 +29,7 @@ int main(int argc, char **argv) {
     char *file_name = give_file_name("position_data", count);
     int file_exists = access(file_name, F_OK);
     while (file_exists == 0) {
-        char *command = malloc(50 * sizeof(*command));
+        char *command = malloc(100 * sizeof(*command));
         strcpy(command, start_command);
         strcat(command, " ");
         strcat(command, file_name);
