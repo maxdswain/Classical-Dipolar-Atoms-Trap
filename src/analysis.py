@@ -25,15 +25,15 @@ WALL_REPULSION_COEFFICIENT = input["simulation_properties"]["wall_repulsion_coef
 DIPOLE_MOMENT = np.linalg.norm(input["simulation_properties"]["dipole_vector"])
 BINS_X = input["simulation_properties"]["bins_x"]
 BINS_Y = input["simulation_properties"]["bins_y"]
+BINS_Z = input["simulation_properties"]["bins_z"]
 
 round_to_n = lambda x, n: round(x, -int(np.floor(np.log10(np.abs(x)))) + (n - 1))
 
 
-def read_simulation_data() -> tuple[np.ndarray[np.float64], np.ndarray[np.float64], np.ndarray[np.float64]]:
+def read_simulation_data() -> tuple[np.ndarray[np.float64], np.ndarray[np.float64]]:
     positions = np.loadtxt("position_data.out").reshape(ITERATIONS // SAMPLING_RATE, N, 3)
     energies = np.loadtxt("energy_data.out")
-    errors = np.loadtxt("error_data.out")
-    return positions, energies, errors
+    return positions, energies
 
 
 def boltzmann_distribution(energies: np.ndarray[np.float64]) -> Callable[[float], float]:
@@ -94,8 +94,9 @@ def plot_snapshots(positions: np.ndarray[np.float64], iteration: int) -> None:
     plt.savefig("snapshots.png")
 
 
-def plot_error(errors: np.ndarray[np.float64]) -> None:
+def plot_error() -> None:
     _, ax = plt.subplots()
+    errors = np.loadtxt("error_data.out")
     ax.plot(np.linspace(1, len(errors), len(errors), dtype="int64"), errors)
     ax.set(xlabel="BTN", ylabel="Standard Error")
     plt.show()
@@ -150,11 +151,28 @@ def plot_density() -> None:
     plt.savefig("density_contour.png")
 
 
+def plot_pair_density() -> None:
+    fig, ax = plt.subplots(figsize=(15, 12))
+    pair_density = np.sum(
+        [
+            np.loadtxt(f).reshape(BINS_Z, BINS_Z)
+            for f in os.listdir(".")
+            if os.path.isfile(f) and "pair" in f and "out" in f
+        ],
+        axis=0,
+    )
+    cs = ax.contourf(pair_density, 40, cmap="RdGy")
+    ax.set(yticklabels=[], xticklabels=[])
+    fig.colorbar(cs)
+    plt.savefig("pair_density_contour.png")
+
+
 if __name__ == "__main__":
-    positions, energies, errors = read_simulation_data()
+    positions, energies = read_simulation_data()
     distances = np.linalg.norm(positions[-1], axis=1)
 
     plot_energies_iterations(energies)
     plot_snapshots(positions, -1)
     # plot_many_energies_iterations()
     # plot_density()
+    # plot_pair_density()
