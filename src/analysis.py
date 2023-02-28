@@ -27,6 +27,7 @@ BINS_X = input["simulation_properties"]["bins_x"]
 BINS_Y = input["simulation_properties"]["bins_y"]
 BINS_Z = input["simulation_properties"]["bins_z"]
 
+plt.rcParams.update({"font.size": 22})
 round_to_n = lambda x, n: round(x, -int(np.floor(np.log10(np.abs(x)))) + (n - 1))
 
 
@@ -86,6 +87,7 @@ def plot_many_energies_iterations() -> None:
 
 
 def plot_snapshots(positions: np.ndarray[np.float64], iteration: int) -> None:
+    plt.rcParams.update({"font.size": 14})
     _, axs = plt.subplots(1, 3, figsize=(15, 4))
     for i, (coord, x) in enumerate(zip(combinations("xyz", 2), combinations(range(3), 2))):
         axs[i].scatter(positions[iteration, :, x[0]], positions[iteration, :, x[1]], c="black")
@@ -172,7 +174,7 @@ if __name__ == "__main__":
     distances = np.linalg.norm(positions[-1], axis=1)
 
     plot_energies_iterations(energies)
-    plot_snapshots(positions, -1)
     # plot_many_energies_iterations()
     # plot_density()
     # plot_pair_density()
+    plot_snapshots(positions, -1)
