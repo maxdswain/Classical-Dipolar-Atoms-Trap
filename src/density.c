@@ -48,8 +48,8 @@ int main(int argc, char **argv) {
         double *density = calculate_density(configuration, N, file_size, BINS_X, BINS_Y, BINS_Z);
         export_1D_array("density", density, BINS_X * BINS_Y * BINS_Z);
 
-        // double *pair_density = calculate_pair_density(configuration, N, file_size, BINS_X, BINS_Y, BINS_Z);
-        // export_1D_array("pair_density", pair_density, BINS_X * BINS_Y * BINS_Z * BINS_X * BINS_Y * BINS_Z);
+        double *pair_density = calculate_pair_density(configuration, N, file_size, BINS_X, BINS_Y, BINS_Z);
+        export_1D_array("pair_density", pair_density, BINS_X * BINS_Y * BINS_Z * BINS_X * BINS_Y * BINS_Z);
         free_2D_array(configuration, N);
 
         count++;

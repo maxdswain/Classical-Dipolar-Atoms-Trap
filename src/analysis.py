@@ -26,8 +26,9 @@ DIPOLE_MOMENT = np.linalg.norm(input["simulation_properties"]["dipole_vector"])
 BINS_X = input["simulation_properties"]["bins_x"]
 BINS_Y = input["simulation_properties"]["bins_y"]
 BINS_Z = input["simulation_properties"]["bins_z"]
+CUTOFF = input["simulation_properties"]["cutoff"]
 
-plt.rcParams.update({"font.size": 22})
+plt.rcParams.update({"font.size": 20})
 round_to_n = lambda x, n: round(x, -int(np.floor(np.log10(np.abs(x)))) + (n - 1))
 
 
@@ -82,7 +83,8 @@ def plot_many_energies_iterations() -> None:
     for energies in energy_data:
         ax.plot(np.linspace(0, ITERATIONS, len(energies)), energies)
     ax.set(xlabel="Iterations", ylabel="Energy")
-    plt.ylim(0.9 * round_to_n(energy_data[0][-1], 1), 1.5 * round_to_n(energy_data[0][-1], 1))
+    plt.ylim(1.117 * round_to_n(energy_data[0][-1], 1), 1.124 * round_to_n(energy_data[0][-1], 1))
+    plt.xlim(0, ITERATIONS)
     plt.savefig("many_energies_iterations.png")
 
 
@@ -105,20 +107,19 @@ def plot_error() -> None:
 
 
 def plot_potential() -> None:
-    _, ax = plt.subplots()
-    r = np.linspace(0.1, 0.3, 101)  # Change ranges of values to ones relevant to system length scales
+    _, ax = plt.subplots(figsize=(12, 9))
+    r = np.linspace(0.9, 3, 101)  # Change ranges of values to ones relevant to system length scales
     repulsive_wall = WALL_REPULSION_COEFFICIENT * r**-ORDER_REPULSIVE_WALL
     dd_interaction = -2 * DIPOLE_MOMENT**2 * r**-3
-    ax.plot(r, dd_interaction + repulsive_wall, label="Combined Potential")
-    ax.plot(r, repulsive_wall, label=rf"$\frac{{1}}{{r^{{{ORDER_REPULSIVE_WALL}}}}}$ Potential")
-    ax.plot(r, dd_interaction, label="Dipole-Diple Interaction")
+    ax.plot(r, dd_interaction + repulsive_wall, label="Combined potential")
+    ax.plot(r, repulsive_wall, label=rf"$\frac{{c_{6}}}{{r^{{{ORDER_REPULSIVE_WALL}}}}}$ potential")
+    ax.plot(r, dd_interaction, label="Dipole-dipole interaction")
     ax.set(
-        xlabel="Difference in Position $r$",
-        ylabel="Potential $V(r)$",
-        title="Plot of Potentials Against the Difference in Distance Between 2 Atoms",
+        xlabel="Difference in position $r$",
+        ylabel="Potential $U(r)$",
     )
     ax.legend(loc="upper right")
-    plt.show()
+    plt.savefig("potential_components.png")
 
 
 def plot_potentials() -> None:
@@ -130,7 +131,6 @@ def plot_potentials() -> None:
     ax.set(
         xlabel="Difference in Position $r$",
         ylabel="Potential $V(r)$",
-        title="Plot of Potentials Against the Difference in Distance Between 2 Atoms",
         yscale="symlog",
     )
     ax.legend(loc="upper right")
@@ -138,6 +138,7 @@ def plot_potentials() -> None:
 
 
 def plot_density() -> None:
+    plt.rcParams.update({"font.size": 24})
     fig, ax = plt.subplots(figsize=(15, 12))
     density = np.sum(
         [
@@ -147,9 +148,10 @@ def plot_density() -> None:
         ],
         axis=0,
     )
-    cs = ax.contourf(density, 40, cmap="RdGy")
-    ax.set(yticklabels=[], xticklabels=[])
-    fig.colorbar(cs)
+    density /= ITERATIONS / SAMPLING_RATE - CUTOFF
+    cs = ax.contourf(density, 40, cmap="inferno")
+    ax.set(xlabel="$x$ bin number", ylabel="$y$ bin number")
+    fig.colorbar(cs).ax.set_ylabel("Mean number of atoms", rotation=270, labelpad=30)
     plt.savefig("density_contour.png")
 
 
