@@ -156,6 +156,7 @@ def plot_density() -> None:
 
 
 def plot_pair_density() -> None:
+    plt.rcParams.update({"font.size": 24})
     fig, ax = plt.subplots(figsize=(15, 12))
     pair_density = np.sum(
         [
@@ -165,9 +166,10 @@ def plot_pair_density() -> None:
         ],
         axis=0,
     )
-    cs = ax.contourf(pair_density, 40, cmap="RdGy")
-    ax.set(yticklabels=[], xticklabels=[])
-    fig.colorbar(cs)
+    pair_density /= ITERATIONS / SAMPLING_RATE - CUTOFF
+    cs = ax.contourf(pair_density, 40, cmap="inferno")
+    ax.set(xlabel="$z_{1}$ bin number", ylabel="$z_{2}$ bin number")
+    fig.colorbar(cs).ax.set_ylabel("Mean number of pairs", rotation=270, labelpad=30)
     plt.savefig("pair_density_contour.png")
 
 
