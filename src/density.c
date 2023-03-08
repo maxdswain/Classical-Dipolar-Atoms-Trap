@@ -114,6 +114,26 @@ double min_position(double **configuration, int index, int size) {
     return min;
 }
 
+double max_position_1D(double *array, int size) {
+    double max = array[0];
+    for (int i = 0; i < size; i++) {
+        if (max < array[i]) {
+            max = array[i];
+        }
+    }
+    return max;
+}
+
+double min_position_1D(double *array, int size) {
+    double min = array[0];
+    for (int i = 0; i < size; i++) {
+        if (min > array[i]) {
+            min = array[i];
+        }
+    }
+    return min;
+}
+
 double *calculate_density(double **configuration, int N, int file_size, int BINS_X, int BINS_Y, int BINS_Z) {
     // Calculate maximum-minimum x y z positions - use an area a little bit larger than min to max
     double min_x = min_position(configuration, 0, file_size * N);
@@ -139,34 +159,28 @@ double *calculate_density(double **configuration, int N, int file_size, int BINS
 }
 
 double *calculate_density_around_z(double **configuration, int N, int file_size, int BINS_X, int BINS_Y, int BINS_Z) {
-    // Convert configuration into 2D array where [file size * N][r,z] from [file size * N][x,y,z]
-    double **mag_configuration = malloc(file_size * N * sizeof(**mag_configuration));
+    double *distances = malloc(file_size * N * sizeof(*distances));
     for (int i = 0; i < file_size * N; i++) {
-        mag_configuration[i] = malloc(2 * sizeof(*mag_configuration));
-    }
-    for (int i = 0; i < file_size * N; i++) {
-        mag_configuration[i][0] =
-            sqrt(configuration[i][0] * configuration[i][0] + configuration[i][1] * configuration[i][1]);
-        mag_configuration[i][1] = configuration[i][2];
+        distances[i] = sqrt(configuration[i][0] * configuration[i][0] + configuration[i][1] * configuration[i][1]);
     }
 
     // Calculate maximum-minimum r z positions - use an area a little bit larger than min to max
-    double min_r = min_position(mag_configuration, 0, file_size * N);
-    double bin_length_r = 1.1 * (max_position(mag_configuration, 0, file_size * N) - min_r) / (double)BINS_X;
-    double min_z = min_position(mag_configuration, 1, file_size * N);
-    double bin_length_z = 1.1 * (max_position(mag_configuration, 1, file_size * N) - min_z) / (double)BINS_Z;
+    double min_r = min_position_1D(distances, file_size * N);
+    double bin_length_r = 1.1 * (max_position_1D(distances, file_size * N) - min_r) / (double)BINS_X;
+    double min_z = min_position(configuration, 2, file_size * N);
+    double bin_length_z = 1.1 * (max_position(configuration, 2, file_size * N) - min_z) / (double)BINS_Z;
     // Loop over all bin widths and calculate density
     double *density = calloc(BINS_X * BINS_Z, sizeof(*density));
     for (int i = 0; i < file_size; i++) {
         for (int j = 0; j < N; j++) {
-            int r_bin = (mag_configuration[i * N + j][0] - (1.05 * min_r)) / bin_length_r;
-            int z_bin = (mag_configuration[i * N + j][1] - (1.05 * min_z)) / bin_length_z;
+            int r_bin = (distances[i * N + j] - (1.05 * min_r)) / bin_length_r;
+            int z_bin = (configuration[i * N + j][2] - (1.05 * min_z)) / bin_length_z;
             if ((r_bin >= -1 || r_bin + 1 < BINS_X) && (z_bin >= -1 || z_bin + 1 < BINS_Z)) {
                 density[r_bin * BINS_Z + z_bin]++;
             }
         }
     }
-    free_2D_array(mag_configuration, file_size * N);
+    free(distances);
     return density;
 }
 
