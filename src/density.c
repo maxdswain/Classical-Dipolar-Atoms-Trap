@@ -12,6 +12,7 @@ void read_config(int *N, int *ITERATIONS, int *SAMPLING_RATE, int *CUTOFF, int *
 double max_position(double **configuration, int index, int size);
 double min_position(double **configuration, int index, int size);
 double *calculate_density(double **configuration, int N, int file_size, int BINS_X, int BINS_Y, int BINS_Z);
+double *calculate_density_around_z(double **configuration, int N, int file_size, int BINS_X, int BINS_Y, int BINS_Z);
 double *calculate_pair_density(double **configuration, int N, int file_size, int BINS_X, int BINS_Y, int BINS_Z);
 
 int main(int argc, char **argv) {
@@ -21,7 +22,7 @@ int main(int argc, char **argv) {
 
     // Extract last iteration from positions output file.
     int file_size = ITERATIONS / SAMPLING_RATE - CUTOFF;
-    char num[(int)((ceil(log10(N) * file_size) + 1) * sizeof(char))];
+    char num[(int)((ceil(log10(N * file_size)) + 1) * sizeof(char))];
     char start_command[50] = "tail -n ";
     sprintf(num, "%d", N * file_size);
     strcat(start_command, num);
@@ -48,9 +49,12 @@ int main(int argc, char **argv) {
         double *density = calculate_density(configuration, N, file_size, BINS_X, BINS_Y, BINS_Z);
         export_1D_array("density", density, BINS_X * BINS_Y * BINS_Z);
 
+        double *density_around_z = calculate_density_around_z(configuration, N, file_size, BINS_X, BINS_Y, BINS_Z);
+        export_1D_array("density_z", density_around_z, BINS_X * BINS_Z);
+
         double *pair_density = calculate_pair_density(configuration, N, file_size, BINS_X, BINS_Y, BINS_Z);
         export_1D_array("pair_density", pair_density, BINS_X * BINS_Y * BINS_Z * BINS_X * BINS_Y * BINS_Z);
-        free_2D_array(configuration, N);
+        free_2D_array(configuration, file_size * N);
 
         count++;
         char *temp = give_file_name("position_data", count);
@@ -131,6 +135,38 @@ double *calculate_density(double **configuration, int N, int file_size, int BINS
             }
         }
     }
+    return density;
+}
+
+double *calculate_density_around_z(double **configuration, int N, int file_size, int BINS_X, int BINS_Y, int BINS_Z) {
+    // Convert configuration into 2D array where [file size * N][r,z] from [file size * N][x,y,z]
+    double **mag_configuration = malloc(file_size * N * sizeof(**mag_configuration));
+    for (int i = 0; i < file_size * N; i++) {
+        mag_configuration[i] = malloc(2 * sizeof(*mag_configuration));
+    }
+    for (int i = 0; i < file_size * N; i++) {
+        mag_configuration[i][0] =
+            sqrt(configuration[i][0] * configuration[i][0] + configuration[i][1] * configuration[i][1]);
+        mag_configuration[i][1] = configuration[i][2];
+    }
+
+    // Calculate maximum-minimum r z positions - use an area a little bit larger than min to max
+    double min_r = min_position(mag_configuration, 0, file_size * N);
+    double bin_length_r = 1.1 * (max_position(mag_configuration, 0, file_size * N) - min_r) / (double)BINS_X;
+    double min_z = min_position(mag_configuration, 1, file_size * N);
+    double bin_length_z = 1.1 * (max_position(mag_configuration, 1, file_size * N) - min_z) / (double)BINS_Z;
+    // Loop over all bin widths and calculate density
+    double *density = calloc(BINS_X * BINS_Z, sizeof(*density));
+    for (int i = 0; i < file_size; i++) {
+        for (int j = 0; j < N; j++) {
+            int r_bin = (mag_configuration[i * N + j][0] - (1.05 * min_r)) / bin_length_r;
+            int z_bin = (mag_configuration[i * N + j][1] - (1.05 * min_z)) / bin_length_z;
+            if ((r_bin >= -1 || r_bin + 1 < BINS_X) && (z_bin >= -1 || z_bin + 1 < BINS_Z)) {
+                density[r_bin * BINS_Z + z_bin]++;
+            }
+        }
+    }
+    free_2D_array(mag_configuration, file_size * N);
     return density;
 }
 
