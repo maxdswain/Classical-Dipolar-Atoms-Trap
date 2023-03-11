@@ -11,6 +11,8 @@ except ModuleNotFoundError:
 
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.spatial import distance
+import seaborn as sns
 
 # Read needed constants from input file
 with open("input.toml", "rb") as f:
@@ -173,9 +175,19 @@ def plot_pair_density() -> None:
     plt.savefig("pair_density_contour.png")
 
 
+def plot_interparticle_distance(positions: np.ndarray[np.float64]) -> None:
+    _, ax = plt.subplots(figsize=(12, 9))
+    pos, mean_distances = positions[CUTOFF:], np.zeros(int(0.495 * N**2))
+    for x in pos:
+        mean_distances += distance.pdist(x, "euclidean")
+    mean_distances /= pos.shape[0]
+    sns.histplot(data=mean_distances, ax=ax, bins=100)
+    ax.set(xlabel="Mean interparticle distance", ylabel="Frequency")
+    plt.savefig("interparticle_distance_hist.png")
+
+
 if __name__ == "__main__":
     positions, energies = read_simulation_data()
-    distances = np.linalg.norm(positions[-1], axis=1)
 
     plot_energies_iterations(energies)
     # plot_many_energies_iterations()
