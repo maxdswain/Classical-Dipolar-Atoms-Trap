@@ -31,7 +31,7 @@ BINS_Z = input["simulation_properties"]["bins_z"]
 CUTOFF = input["simulation_properties"]["cutoff"]
 
 plt.rcParams.update({"font.size": 20})
-round_to_n = lambda x, n: round(x, -int(np.floor(np.log10(np.abs(x)))) + (n - 1))
+round_to_n = lambda x, n: x if x == 0 else round(x, -int(np.floor(np.log10(np.abs(x)))) + (n - 1))
 
 
 def read_simulation_data() -> tuple[np.ndarray[np.float64], np.ndarray[np.float64]]:
@@ -74,8 +74,7 @@ def plot_positions_iterations(positions: np.ndarray[np.float64], component: int)
 def plot_energies_iterations(energies: np.ndarray[np.float64]) -> None:
     _, ax = plt.subplots(figsize=(15, 9))
     ax.plot(np.linspace(0, ITERATIONS, len(energies)), energies)
-    ax.set(xlabel="Iterations", ylabel="Energy")
-    plt.ylim(0, 5 * round_to_n(energies[-1], 1))
+    ax.set(xlabel="Iterations", ylabel="Energy", ylim=(0, 5 * round_to_n(energies[-1], 1)))
     plt.savefig("energies_iterations.png")
 
 
@@ -84,9 +83,8 @@ def plot_many_energies_iterations() -> None:
     energy_data = [np.loadtxt(f) for f in os.listdir(".") if os.path.isfile(f) and "energy" in f]
     for energies in energy_data:
         ax.plot(np.linspace(0, ITERATIONS, len(energies)), energies)
-    ax.set(xlabel="Iterations", ylabel="Energy")
+    ax.set(xlabel="Iterations", ylabel="Energy", xlim=(0, ITERATIONS))
     plt.ylim(1.117 * round_to_n(energy_data[0][-1], 1), 1.124 * round_to_n(energy_data[0][-1], 1))
-    plt.xlim(0, ITERATIONS)
     plt.savefig("many_energies_iterations.png")
 
 
@@ -139,7 +137,7 @@ def plot_potentials() -> None:
     plt.show()
 
 
-def plot_density() -> None:
+def plot_density(positions: np.ndarray[np.float64]) -> None:
     plt.rcParams.update({"font.size": 24})
     fig, ax = plt.subplots(figsize=(15, 12))
     density = np.sum(
@@ -151,13 +149,22 @@ def plot_density() -> None:
         axis=0,
     )
     density /= ITERATIONS / SAMPLING_RATE - CUTOFF
+    x_bin_length = 1.1 * (np.max(positions[CUTOFF:, :, 0]) - np.min(positions[CUTOFF:, :, 0])) / BINS_X
+    y_bin_length = 1.1 * (np.max(positions[CUTOFF:, :, 1]) - np.min(positions[CUTOFF:, :, 1])) / BINS_Y
     cs = ax.contourf(density, 40, cmap="inferno")
-    ax.set(xlabel="$x$ bin number", ylabel="$y$ bin number")
-    fig.colorbar(cs).ax.set_ylabel("Mean number of atoms", rotation=270, labelpad=30)
+    x_axes, y_axes = len(ax.get_xticklabels()), len(ax.get_yticklabels())
+    # Note that positions labels are shifted to 0 to 2x from -x to x
+    ax.set(
+        xlabel="$x$ position",
+        ylabel="$y$ position",
+        xticklabels=[round_to_n(x * x_bin_length * BINS_X / x_axes, 4) for x in range(x_axes)],
+        yticklabels=[round_to_n(y * y_bin_length * BINS_Y / y_axes, 4) for y in range(y_axes)],
+    )
+    fig.colorbar(cs).ax.set_ylabel("Number density $(a.u.)$", rotation=270, labelpad=30)
     plt.savefig("density_contour.png")
 
 
-def plot_pair_density() -> None:
+def plot_pair_density(positions: np.ndarray[np.float64]) -> None:
     plt.rcParams.update({"font.size": 24})
     fig, ax = plt.subplots(figsize=(15, 12))
     pair_density = np.sum(
@@ -169,21 +176,37 @@ def plot_pair_density() -> None:
         axis=0,
     )
     pair_density /= ITERATIONS / SAMPLING_RATE - CUTOFF
+    z_bin_length = 1.1 * (np.max(positions[CUTOFF:, :, 2]) - np.min(positions[CUTOFF:, :, 2])) / BINS_Z
     cs = ax.contourf(pair_density, 40, cmap="inferno")
-    ax.set(xlabel="$z_{1}$ bin number", ylabel="$z_{2}$ bin number")
+    x_axes, y_axes = len(ax.get_xticklabels()), len(ax.get_yticklabels())
+    # Note that positions labels are shifted to 0 to 2x from -x to x
+    ax.set(
+        xlabel="$z_{1}$ position",
+        ylabel="$z_{2}$ position",
+        xticklabels=[round_to_n(z * z_bin_length * BINS_Z / x_axes, 4) for z in range(x_axes)],
+        yticklabels=[round_to_n(z * z_bin_length * BINS_Z / y_axes, 4) for z in range(y_axes)],
+    )
     fig.colorbar(cs).ax.set_ylabel("Mean number of pairs", rotation=270, labelpad=30)
     plt.savefig("pair_density_contour.png")
 
 
-def plot_interparticle_distance(positions: np.ndarray[np.float64]) -> None:
+def plot_interparticle_distance() -> None:
     _, ax = plt.subplots(figsize=(12, 9))
-    pos, mean_distances = positions[CUTOFF:], np.zeros(int(0.495 * N**2))
-    for x in pos:
-        mean_distances += distance.pdist(x, "euclidean")
-    mean_distances /= pos.shape[0]
-    sns.histplot(data=mean_distances, ax=ax, bins=100)
-    ax.set(xlabel="Mean interparticle distance", ylabel="Frequency")
-    plt.savefig("interparticle_distance_hist.png")
+    pw_size, pos_size = int(0.5 * N * (N - 1)), int(ITERATIONS / SAMPLING_RATE - CUTOFF)
+    temps = [1e-3, 2.5e-1, 5e-1, 1e0, 1e1]
+    for i, positions in enumerate(
+        map(
+            lambda f: np.loadtxt(f).reshape(ITERATIONS // SAMPLING_RATE, N, 3),
+            sorted([f for f in os.listdir(".") if os.path.isfile(f) and "position" in f]),
+        )
+    ):
+        mean_distances = np.empty(pos_size * pw_size)
+        for j, x in enumerate(positions[CUTOFF:]):
+            mean_distances[j * pw_size : (j + 1) * pw_size] = distance.pdist(x, "euclidean")
+        sns.kdeplot(data=mean_distances, ax=ax, bw_adjust=0.2, linewidth=2, alpha=0.5, label=f"$T={temps[i]}$")
+    ax.set(xlabel="Interparticle distance", ylabel="Density", xlim=(0, 20))
+    ax.legend(loc="upper right")
+    plt.savefig("interparticle_distance.png")
 
 
 if __name__ == "__main__":
@@ -191,6 +214,6 @@ if __name__ == "__main__":
 
     plot_energies_iterations(energies)
     # plot_many_energies_iterations()
-    # plot_density()
-    # plot_pair_density()
+    # plot_density(positions)
+    # plot_pair_density(positions)
     plot_snapshots(positions, -1)
