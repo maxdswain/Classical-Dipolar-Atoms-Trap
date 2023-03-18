@@ -13,6 +13,7 @@ double max_position(double **configuration, int index, int size);
 double min_position(double **configuration, int index, int size);
 double *calculate_density(double **configuration, int N, int file_size, int BINS_X, int BINS_Y, int BINS_Z);
 double *calculate_density_around_z(double **configuration, int N, int file_size, int BINS_X, int BINS_Y, int BINS_Z);
+double *calculate_number_density(double **configuration, int N, int file_size, int BINS_X, int BINS_Y);
 double *calculate_pair_density(double **configuration, int N, int file_size, int BINS_X, int BINS_Y, int BINS_Z);
 
 int main(int argc, char **argv) {
@@ -51,6 +52,9 @@ int main(int argc, char **argv) {
 
         double *density_around_z = calculate_density_around_z(configuration, N, file_size, BINS_X, BINS_Y, BINS_Z);
         export_1D_array("density_z", density_around_z, BINS_X * BINS_Z);
+
+        double *number_density = calculate_number_density(configuration, N, file_size, BINS_X, BINS_Y);
+        export_1D_array("number_density", number_density, BINS_X);
 
         double *pair_density = calculate_pair_density(configuration, N, file_size, BINS_X, BINS_Y, BINS_Z);
         export_1D_array("pair_density", pair_density, BINS_X * BINS_Y * BINS_Z * BINS_X * BINS_Y * BINS_Z);
@@ -177,6 +181,29 @@ double *calculate_density_around_z(double **configuration, int N, int file_size,
             int z_bin = (configuration[i * N + j][2] - (1.05 * min_z)) / bin_length_z;
             if ((r_bin >= -1 || r_bin + 1 < BINS_X) && (z_bin >= -1 || z_bin + 1 < BINS_Z)) {
                 density[r_bin * BINS_Z + z_bin]++;
+            }
+        }
+    }
+    free(distances);
+    return density;
+}
+
+double *calculate_number_density(double **configuration, int N, int file_size, int BINS_X, int BINS_Y) {
+    double *distances = malloc(file_size * N * sizeof(*distances));
+    for (int i = 0; i < file_size * N; i++) {
+        distances[i] = sqrt(configuration[i][0] * configuration[i][0] + configuration[i][1] * configuration[i][1]);
+    }
+
+    // Calculate maximum-minimum r z positions - use an area a little bit larger than min to max
+    double min_r = min_position_1D(distances, file_size * N);
+    double bin_length_r = 1.1 * (max_position_1D(distances, file_size * N) - min_r) / (double)BINS_X;
+    // Loop over all bin widths and calculate density
+    double *density = calloc(BINS_X, sizeof(*density));
+    for (int i = 0; i < file_size; i++) {
+        for (int j = 0; j < N; j++) {
+            int r_bin = (distances[i * N + j] - (1.05 * min_r)) / bin_length_r;
+            if (r_bin >= -1 || r_bin + 1 < BINS_X) {
+                density[r_bin]++;
             }
         }
     }

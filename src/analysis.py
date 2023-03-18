@@ -93,7 +93,7 @@ def plot_snapshots(positions: np.ndarray[np.float64], iteration: int) -> None:
     _, axs = plt.subplots(1, 3, figsize=(15, 4))
     for i, (coord, x) in enumerate(zip(combinations("xyz", 2), combinations(range(3), 2))):
         axs[i].scatter(positions[iteration, :, x[0]], positions[iteration, :, x[1]], c="black")
-        axs[i].set(xlabel=f"${coord[0]}$ Positions", ylabel=f"${coord[1]}$ Positions")
+        axs[i].set(xlabel=f"${coord[0]}$ position", ylabel=f"${coord[1]}$ position")
     plt.tight_layout()
     plt.savefig("snapshots.png")
 
@@ -207,6 +207,29 @@ def plot_interparticle_distance() -> None:
     ax.set(xlabel="Interparticle distance", ylabel="Density", xlim=(0, 20))
     ax.legend(loc="upper right")
     plt.savefig("interparticle_distance.png")
+
+
+def plot_number_density() -> None:
+    _, ax = plt.subplots(figsize=(12, 9))
+    temps = [1e-3, 2.5e-1, 5e-1, 1e0, 1e1]
+    for (i, number_density), positions in zip(
+        enumerate(
+            map(
+                lambda f: np.loadtxt(f) / (ITERATIONS / SAMPLING_RATE - CUTOFF),
+                sorted([f for f in os.listdir(".") if os.path.isfile(f) and "density" in f and "out" in f]),
+            )
+        ),
+        map(
+            lambda f: np.loadtxt(f),
+            sorted([f for f in os.listdir(".") if os.path.isfile(f) and "position" in f]),
+        ),
+    ):
+        distances = np.linalg.norm(positions[N * CUTOFF :, :2], axis=1)
+        r_bin_length = 1.1 * (np.max(distances) - np.min(distances)) / BINS_X
+        ax.plot([r * r_bin_length for r in range(BINS_X)], number_density, alpha=0.5, label=f"$T={temps[i]}$")
+    ax.set(xlabel="Distance $r$", ylabel="Number density $n(r)$", xlim=(0, 12.5))
+    ax.legend(loc="upper right")
+    plt.savefig("number_density.png")
 
 
 if __name__ == "__main__":
