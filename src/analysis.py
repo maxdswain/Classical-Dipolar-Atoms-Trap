@@ -99,11 +99,11 @@ def plot_snapshots(positions: np.ndarray[np.float64], iteration: int) -> None:
 
 
 def plot_error() -> None:
-    _, ax = plt.subplots()
+    _, ax = plt.subplots(figsize=(12, 9))
     errors = np.loadtxt("error_data.out")
-    ax.plot(np.linspace(1, len(errors), len(errors), dtype="int64"), errors)
-    ax.set(xlabel="BTN", ylabel="Standard Error")
-    plt.show()
+    ax.plot(np.arange(1, len(errors) + 1), errors, color="black")
+    ax.set(xlabel="Reblocking transformation number", ylabel="Standard error", xticks=np.arange(1, len(errors) + 1))
+    plt.savefig("error_rtn.png")
 
 
 def plot_potential() -> None:
@@ -204,7 +204,7 @@ def plot_interparticle_distance() -> None:
         for j, x in enumerate(positions[CUTOFF:]):
             mean_distances[j * pw_size : (j + 1) * pw_size] = distance.pdist(x, "euclidean")
         sns.kdeplot(data=mean_distances, ax=ax, bw_adjust=0.2, linewidth=2, alpha=0.5, label=f"$T={temps[i]}$")
-    ax.set(xlabel="Interparticle distance", ylabel="Density", xlim=(0, 20))
+    ax.set(xlabel="Interparticle distance", ylabel="Pair correlation function", xlim=(0, 20))
     ax.legend(loc="upper right")
     plt.savefig("interparticle_distance.png")
 
@@ -226,8 +226,10 @@ def plot_number_density() -> None:
     ):
         distances = np.linalg.norm(positions[N * CUTOFF :, :2], axis=1)
         r_bin_length = 1.1 * (np.max(distances) - np.min(distances)) / BINS_X
-        ax.plot([r * r_bin_length for r in range(BINS_X)], number_density, alpha=0.5, label=f"$T={temps[i]}$")
-    ax.set(xlabel="Distance $r$", ylabel="Number density $n(r)$", xlim=(0, 12.5))
+        r = np.array([(r + 0.5) * r_bin_length for r in range(BINS_X)])
+        n_norm = N * number_density / (2 * np.pi * r * np.trapz(number_density, dx=r_bin_length))
+        ax.plot(r, n_norm, alpha=0.5, label=f"$T={temps[i]}$")
+    ax.set(xlabel="Distance $r$", ylabel="Number density $n(r)$", xlim=(0, 12.5), ylim=(0, 7.5))
     ax.legend(loc="upper right")
     plt.savefig("number_density.png")
 

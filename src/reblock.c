@@ -7,35 +7,35 @@
 
 #include "shared.h"
 
-void read_config(int *ITERATIONS, int *SAMPLING_RATE, int *BTN, int *CUTOFF);
+void read_config(int *ITERATIONS, int *SAMPLING_RATE, int *RTN, int *CUTOFF);
 double *read_energies(int ITERATIONS, int SAMPLING_RATE);
 double sum(double *a, int D);
 double *slice(double *a, int from, int until);
-double *reblocking(double *energies, int size, int BTN);
+double *reblocking(double *energies, int size, int RTN);
 double calculate_error(double *mean_energies, int size);
 
 int main(int argc, char **argv) {
-    int ITERATIONS, SAMPLING_RATE, BTN, CUTOFF;
-    read_config(&ITERATIONS, &SAMPLING_RATE, &BTN, &CUTOFF);
+    int ITERATIONS, SAMPLING_RATE, RTN, CUTOFF;
+    read_config(&ITERATIONS, &SAMPLING_RATE, &RTN, &CUTOFF);
     double *energies = read_energies(ITERATIONS, SAMPLING_RATE);
     double *sliced_energies = slice(energies, CUTOFF, ITERATIONS / SAMPLING_RATE);
 
-    int MAX_BTN = 2;  // ((ITERATIONS / SAMPLING_RATE) - CUTOFF) / 2^MAX_BTN must be an integer
-    while (((ITERATIONS / SAMPLING_RATE) - CUTOFF) % (int)pow(2, MAX_BTN + 1) == 0) MAX_BTN++;
-    char num[(int)((ceil(log10(MAX_BTN)) + 1) * sizeof(char))];
-    char errmsg[40] = "BTN must be less than or equal to ";
-    sprintf(num, "%d", MAX_BTN);
+    int MAX_RTN = 2;  // ((ITERATIONS / SAMPLING_RATE) - CUTOFF) / 2^MAX_RTN must be an integer
+    while (((ITERATIONS / SAMPLING_RATE) - CUTOFF) % (int)pow(2, MAX_RTN + 1) == 0) MAX_RTN++;
+    char num[(int)((ceil(log10(MAX_RTN)) + 1) * sizeof(char))];
+    char errmsg[40] = "RTN must be less than or equal to ";
+    sprintf(num, "%d", MAX_RTN);
     strcat(errmsg, num);
-    if (BTN > MAX_BTN) {
-        error("BTN chosen in input.toml is too large", errmsg);
+    if (RTN > MAX_RTN) {
+        error("RTN chosen in input.toml is too large", errmsg);
     }
 
-    // Calculates the standard errors post equilibration (decided by value of CUTOFF) for different BTN
-    double *errors = malloc(MAX_BTN * sizeof(*errors));
+    // Calculates the standard errors post equilibration (decided by value of CUTOFF) for different RTN
+    double *errors = malloc(MAX_RTN * sizeof(*errors));
     double *mean_energies = reblocking(sliced_energies, (ITERATIONS / SAMPLING_RATE) - CUTOFF, 1);
     int size_mean_energies = 0.5 * ((ITERATIONS / SAMPLING_RATE) - CUTOFF);
     errors[0] = calculate_error(mean_energies, size_mean_energies);
-    for (int i = 1; i < MAX_BTN; i++) {
+    for (int i = 1; i < MAX_RTN; i++) {
         double *temp_array = reblocking(mean_energies, size_mean_energies, 1);
         size_mean_energies /= 2;
         mean_energies = realloc(mean_energies, size_mean_energies * sizeof(*mean_energies));
@@ -46,10 +46,10 @@ int main(int argc, char **argv) {
     free(energies);
     free(sliced_energies);
     export_1D_array("mean_energies", mean_energies, size_mean_energies);
-    export_1D_array("error_data", errors, MAX_BTN);
+    export_1D_array("error_data", errors, MAX_RTN);
 }
 
-void read_config(int *ITERATIONS, int *SAMPLING_RATE, int *BTN, int *CUTOFF) {
+void read_config(int *ITERATIONS, int *SAMPLING_RATE, int *RTN, int *CUTOFF) {
     FILE *fp = fopen("input.toml", "r");  // Read and parse toml file
     if (!fp) {
         error("Cannot open input.toml", strerror(errno));
@@ -65,8 +65,8 @@ void read_config(int *ITERATIONS, int *SAMPLING_RATE, int *BTN, int *CUTOFF) {
     *ITERATIONS = repetitions.u.i;
     toml_datum_t data_sampling_rate = toml_int_in(properties, "sampling_rate");
     *SAMPLING_RATE = data_sampling_rate.u.i;
-    toml_datum_t blocking_transformation_number = toml_int_in(properties, "blocking_transformation_number");
-    *BTN = blocking_transformation_number.u.i;
+    toml_datum_t reblocking_transformation_number = toml_int_in(properties, "reblocking_transformation_number");
+    *RTN = reblocking_transformation_number.u.i;
     toml_datum_t cutoff = toml_int_in(properties, "cutoff");
     *CUTOFF = cutoff.u.i;
     char num[(int)((ceil(log10(*ITERATIONS / *SAMPLING_RATE)) + 1) * sizeof(char))];
@@ -121,11 +121,11 @@ double *slice(double *a, int from, int until) {
 
 /* Function that calculates the mean of adjacent energies,
 then the mean of those mean energies and so on for a specified number of times */
-double *reblocking(double *energies, int size, int BTN) {
+double *reblocking(double *energies, int size, int RTN) {
     double *array = malloc(size * sizeof(*array));
 
     memcpy(array, energies, size * sizeof(*energies));
-    for (int i = 1; i <= BTN; i++) {
+    for (int i = 1; i <= RTN; i++) {
         for (int j = 0; j < size / pow(2, i); j++) {
             array[j] = 0.5 * (array[2 * j] + array[2 * j + 1]);
         }
