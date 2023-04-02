@@ -138,7 +138,7 @@ def plot_potentials() -> None:
 
 
 def plot_density(positions: np.ndarray[np.float64]) -> None:
-    plt.rcParams.update({"font.size": 24})
+    plt.rcParams.update({"font.size": 24, "xtick.major.pad": 8})
     fig, ax = plt.subplots(figsize=(15, 12))
     density = np.sum(
         [
@@ -152,13 +152,13 @@ def plot_density(positions: np.ndarray[np.float64]) -> None:
     x_bin_length = 1.1 * (np.max(positions[CUTOFF:, :, 0]) - np.min(positions[CUTOFF:, :, 0])) / BINS_X
     y_bin_length = 1.1 * (np.max(positions[CUTOFF:, :, 1]) - np.min(positions[CUTOFF:, :, 1])) / BINS_Y
     cs = ax.contourf(density, 40, cmap="inferno")
-    x_axes, y_axes = len(ax.get_xticklabels()), len(ax.get_yticklabels())
-    # Note that positions labels are shifted to 0 to 2x from -x to x
     ax.set(
-        xlabel="$x$ position",
-        ylabel="$y$ position",
-        xticklabels=[round_to_n(x * x_bin_length * BINS_X / x_axes, 4) for x in range(x_axes)],
-        yticklabels=[round_to_n(y * y_bin_length * BINS_Y / y_axes, 4) for y in range(y_axes)],
+        xlabel="$x$ position (a.u.)",
+        ylabel="$y$ position (a.u.)",
+        xticks=np.linspace(0, BINS_X - 1, num=7),
+        yticks=np.linspace(0, BINS_Y - 1, num=7),
+        xticklabels=[round_to_n(x * x_bin_length * BINS_X / 7, 3) for x in range(-3, 4)],
+        yticklabels=[round_to_n(y * y_bin_length * BINS_Y / 7, 3) for y in range(-3, 4)],
     )
     fig.colorbar(cs).ax.set_ylabel("Number density $(a.u.)$", rotation=270, labelpad=30)
     plt.savefig("density_contour.png")
@@ -178,13 +178,13 @@ def plot_pair_density(positions: np.ndarray[np.float64]) -> None:
     pair_density /= ITERATIONS / SAMPLING_RATE - CUTOFF
     z_bin_length = 1.1 * (np.max(positions[CUTOFF:, :, 2]) - np.min(positions[CUTOFF:, :, 2])) / BINS_Z
     cs = ax.contourf(pair_density, 40, cmap="inferno")
-    x_axes, y_axes = len(ax.get_xticklabels()), len(ax.get_yticklabels())
-    # Note that positions labels are shifted to 0 to 2x from -x to x
     ax.set(
-        xlabel="$z_{1}$ position",
-        ylabel="$z_{2}$ position",
-        xticklabels=[round_to_n(z * z_bin_length * BINS_Z / x_axes, 4) for z in range(x_axes)],
-        yticklabels=[round_to_n(z * z_bin_length * BINS_Z / y_axes, 4) for z in range(y_axes)],
+        xlabel="$z_{1}$ position (a.u.)",
+        ylabel="$z_{2}$ position (a.u.)",
+        xticks=np.linspace(0, BINS_Z - 1, num=7),
+        yticks=np.linspace(0, BINS_Z - 1, num=7),
+        xticklabels=[round_to_n(z * z_bin_length * BINS_Z / 7, 4) for z in range(-3, 4)],
+        yticklabels=[round_to_n(z * z_bin_length * BINS_Z / 7, 4) for z in range(-3, 4)],
     )
     fig.colorbar(cs).ax.set_ylabel("Mean number of pairs", rotation=270, labelpad=30)
     plt.savefig("pair_density_contour.png")
@@ -232,6 +232,31 @@ def plot_number_density() -> None:
     ax.set(xlabel="Distance $r$", ylabel="Number density $n(r)$", xlim=(0, 12.5), ylim=(0, 7.5))
     ax.legend(loc="upper right")
     plt.savefig("number_density.png")
+
+
+def plot_radial_distribution() -> None:
+    _, ax = plt.subplots(figsize=(12, 9))
+    temps = [1e0, 1e1, 5e1, 1e2, 1e3]
+    for (i, distance), positions in zip(
+        enumerate(
+            map(
+                lambda f: np.loadtxt(f) / (ITERATIONS / SAMPLING_RATE - CUTOFF),
+                sorted([f for f in os.listdir(".") if os.path.isfile(f) and "density" in f and "out" in f]),
+            )
+        ),
+        map(
+            lambda f: np.loadtxt(f),
+            sorted([f for f in os.listdir(".") if os.path.isfile(f) and "position" in f]),
+        ),
+    ):
+        distances = np.linalg.norm(positions[N * CUTOFF :, :2], axis=1)
+        r_bin_length = 1.1 * (np.max(distances) - np.min(distances)) / BINS_X
+        r = np.array([(r + 0.5) * r_bin_length for r in range(BINS_X)])
+        n_norm = distance / np.trapz(distance, dx=r_bin_length)
+        ax.plot(r, n_norm, alpha=0.5, label=f"$T={temps[i]}$")
+    ax.set(xlabel="Distance", ylabel="Radial distribution")
+    ax.legend(loc="upper right")
+    plt.savefig("radial_distribution.png")
 
 
 if __name__ == "__main__":
