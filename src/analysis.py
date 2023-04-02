@@ -259,6 +259,30 @@ def plot_radial_distribution() -> None:
     plt.savefig("radial_distribution.png")
 
 
+def plot_densities() -> None:
+    plt.rcParams.update({"font.size": 20})
+    _, ax = plt.subplots(figsize=(12, 9))
+    temps = [1e-3, 2.5e-1, 5e-1, 1e0, 1e1]
+    for (i, density), positions in zip(
+        enumerate(
+            map(
+                lambda f: np.loadtxt(f).reshape(BINS_X, BINS_Y) / (ITERATIONS / SAMPLING_RATE - CUTOFF),
+                sorted([f for f in os.listdir(".") if os.path.isfile(f) and "density" in f and "out" in f]),
+            )
+        ),
+        map(
+            lambda f: np.loadtxt(f).reshape(ITERATIONS // SAMPLING_RATE, N, 3),
+            sorted([f for f in os.listdir(".") if os.path.isfile(f) and "position" in f]),
+        ),
+    ):
+        x_bin_length = 1.1 * (np.max(positions[CUTOFF:, :, 0]) - np.min(positions[CUTOFF:, :, 0])) / BINS_X
+        x = [x * x_bin_length * BINS_X for x in range(-BINS_X // 2 + 1, BINS_X // 2 + 1)]
+        ax.plot(x, density[:, BINS_Y // 2], label=f"$T={temps[i]}$")
+    ax.set(xlabel="$x$ position", ylabel="Number density (a.u.)", xlim=(-750, 750))
+    ax.legend(loc="upper right")
+    plt.savefig("densities.png")
+
+
 if __name__ == "__main__":
     positions, energies = read_simulation_data()
 
