@@ -30,7 +30,7 @@ BINS_Y = input["simulation_properties"]["bins_y"]
 BINS_Z = input["simulation_properties"]["bins_z"]
 CUTOFF = input["simulation_properties"]["cutoff"]
 
-plt.rcParams.update({"font.size": 20})
+plt.rcParams.update({"font.size": 34, "font.family": "Latin Modern Roman", "text.usetex": True, "figure.dpi": 150})
 round_to_n = lambda x, n: x if x == 0 else round(x, -int(np.floor(np.log10(np.abs(x)))) + (n - 1))
 
 
@@ -83,7 +83,7 @@ def plot_many_energies_iterations() -> None:
     energy_data = [np.loadtxt(f) for f in os.listdir(".") if os.path.isfile(f) and "energy" in f]
     for energies in energy_data:
         ax.plot(np.linspace(0, ITERATIONS, len(energies)), energies)
-    ax.set(xlabel="Iterations", ylabel="Energy", xlim=(0, ITERATIONS))
+    ax.set(xlabel="Iterations", ylabel="Energy (a.u.)", xlim=(0, ITERATIONS))
     plt.ylim(1.117 * round_to_n(energy_data[0][-1], 1), 1.124 * round_to_n(energy_data[0][-1], 1))
     plt.savefig("many_energies_iterations.png")
 
@@ -115,8 +115,8 @@ def plot_potential() -> None:
     ax.plot(r, repulsive_wall, label=rf"$\frac{{c_{6}}}{{r^{{{ORDER_REPULSIVE_WALL}}}}}$ potential")
     ax.plot(r, dd_interaction, label="Dipole-dipole interaction")
     ax.set(
-        xlabel="Difference in position $r$",
-        ylabel="Potential $U(r)$",
+        xlabel="Difference in position, $r$ (a.u.)",
+        ylabel="Potential, $U(r)$ (a.u.)",
     )
     ax.legend(loc="upper right")
     plt.savefig("potential_components.png")
@@ -138,7 +138,7 @@ def plot_potentials() -> None:
 
 
 def plot_density(positions: np.ndarray[np.float64]) -> None:
-    plt.rcParams.update({"font.size": 24, "xtick.major.pad": 8})
+    plt.rcParams.update({"font.size": 40, "xtick.major.pad": 10})
     fig, ax = plt.subplots(figsize=(15, 12))
     density = np.sum(
         [
@@ -155,12 +155,12 @@ def plot_density(positions: np.ndarray[np.float64]) -> None:
     ax.set(
         xlabel="$x$ position (a.u.)",
         ylabel="$y$ position (a.u.)",
-        xticks=np.linspace(0, BINS_X - 1, num=7),
-        yticks=np.linspace(0, BINS_Y - 1, num=7),
+        xticks=np.linspace(0, BINS_X - 5, num=7),
+        yticks=np.linspace(0, BINS_Y - 5, num=7),
         xticklabels=[round_to_n(x * x_bin_length * BINS_X / 7, 3) for x in range(-3, 4)],
         yticklabels=[round_to_n(y * y_bin_length * BINS_Y / 7, 3) for y in range(-3, 4)],
     )
-    fig.colorbar(cs).ax.set_ylabel("Number density $(a.u.)$", rotation=270, labelpad=30)
+    fig.colorbar(cs).ax.set_ylabel("Number density (a.u.)", rotation=270, labelpad=50)
     plt.savefig("density_contour.png")
 
 
@@ -193,7 +193,7 @@ def plot_pair_density(positions: np.ndarray[np.float64]) -> None:
 def plot_interparticle_distance() -> None:
     _, ax = plt.subplots(figsize=(12, 9))
     pw_size, pos_size = int(0.5 * N * (N - 1)), int(ITERATIONS / SAMPLING_RATE - CUTOFF)
-    temps = [1e-3, 2.5e-1, 5e-1, 1e0, 1e1]
+    temps = [1e0, 1e1, 5e1, 1e2, 1e3]
     for i, positions in enumerate(
         map(
             lambda f: np.loadtxt(f).reshape(ITERATIONS // SAMPLING_RATE, N, 3),
@@ -204,14 +204,15 @@ def plot_interparticle_distance() -> None:
         for j, x in enumerate(positions[CUTOFF:]):
             mean_distances[j * pw_size : (j + 1) * pw_size] = distance.pdist(x, "euclidean")
         sns.kdeplot(data=mean_distances, ax=ax, bw_adjust=0.2, linewidth=2, alpha=0.5, label=f"$T={temps[i]}$")
-    ax.set(xlabel="Interparticle distance", ylabel="Pair correlation function", xlim=(0, 20))
+    ax.set(xlabel="Interparticle distance (a.u.)", ylabel="Pair correlation function", xlim=(0, 150))
     ax.legend(loc="upper right")
+    plt.tight_layout()
     plt.savefig("interparticle_distance.png")
 
 
 def plot_number_density() -> None:
     _, ax = plt.subplots(figsize=(12, 9))
-    temps = [1e-3, 2.5e-1, 5e-1, 1e0, 1e1]
+    temps = [1e0, 1e1, 5e1, 1e2, 1e3]
     for (i, number_density), positions in zip(
         enumerate(
             map(
@@ -229,8 +230,9 @@ def plot_number_density() -> None:
         r = np.array([(r + 0.5) * r_bin_length for r in range(BINS_X)])
         n_norm = N * number_density / (2 * np.pi * r * np.trapz(number_density, dx=r_bin_length))
         ax.plot(r, n_norm, alpha=0.5, label=f"$T={temps[i]}$")
-    ax.set(xlabel="Distance $r$", ylabel="Number density $n(r)$", xlim=(0, 12.5), ylim=(0, 7.5))
+    ax.set(xlabel="Distance, $r$ (a.u.)", ylabel="Number density, $n(r)$ (a.u.)", xlim=(0, 4))
     ax.legend(loc="upper right")
+    plt.tight_layout()
     plt.savefig("number_density.png")
 
 
