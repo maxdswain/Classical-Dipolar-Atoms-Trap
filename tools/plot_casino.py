@@ -5,8 +5,6 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 
-plt.rcParams.update({"font.size": 24, "font.family": "Latin Modern Roman", "text.usetex": True, "figure.dpi": 150})
-
 stop = False
 with open("expval.data", "r") as f:
     for line in f:
@@ -16,6 +14,7 @@ with open("expval.data", "r") as f:
         if line == "Grid size\n":
             stop = True
 BINS_X, BINS_Y = grid_size[:2]
+plt.rcParams.update({"font.size": 24, "font.family": "Latin Modern Roman", "text.usetex": True, "figure.dpi": 150})
 
 
 def plot_density_contour() -> None:

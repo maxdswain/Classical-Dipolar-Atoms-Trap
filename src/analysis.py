@@ -89,7 +89,6 @@ def plot_many_energies_iterations() -> None:
 
 
 def plot_snapshots(positions: np.ndarray[np.float64], iteration: int) -> None:
-    plt.rcParams.update({"font.size": 14})
     _, axs = plt.subplots(1, 3, figsize=(15, 4))
     for i, (coord, x) in enumerate(zip(combinations("xyz", 2), combinations(range(3), 2))):
         axs[i].scatter(positions[iteration, :, x[0]], positions[iteration, :, x[1]], c="black")
@@ -114,10 +113,7 @@ def plot_potential() -> None:
     ax.plot(r, dd_interaction + repulsive_wall, label="Combined potential")
     ax.plot(r, repulsive_wall, label=rf"$\frac{{c_{6}}}{{r^{{{ORDER_REPULSIVE_WALL}}}}}$ potential")
     ax.plot(r, dd_interaction, label="Dipole-dipole interaction")
-    ax.set(
-        xlabel="Difference in position, $r$ (a.u.)",
-        ylabel="Potential, $U(r)$ (a.u.)",
-    )
+    ax.set(xlabel="Difference in position, $r$ (a.u.)", ylabel="Potential, $U(r)$ (a.u.)")
     ax.legend(loc="upper right")
     plt.savefig("potential_components.png")
 
@@ -128,11 +124,7 @@ def plot_potentials() -> None:
     for x in [WALL_REPULSION_COEFFICIENT * 10**i for i in range(-2, 3)]:
         potential = x * r**-ORDER_REPULSIVE_WALL - 2 * DIPOLE_MOMENT**2 * r**-3
         ax.plot(r, potential, label=f"Potential for $c_{{6}}={x}$")
-    ax.set(
-        xlabel="Difference in Position $r$",
-        ylabel="Potential $V(r)$",
-        yscale="symlog",
-    )
+    ax.set(xlabel="Difference in position, $r$", ylabel="Potential, $V(r)$", yscale="symlog")
     ax.legend(loc="upper right")
     plt.show()
 
