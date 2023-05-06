@@ -38,7 +38,7 @@ def plot_density_contour() -> None:
 def plot_densities() -> None:
     plt.rcParams.update({"font.size": 24})
     _, ax = plt.subplots(figsize=(12, 9))
-    dipole_moments, qmc = [0.0707, 2, 5, 100], ["VMC", "DMC"]
+    dipole_moments, qmc = [3.5, 30, 180, 71000], ["VMC", "DMC"]
     for i, density in enumerate(
         map(
             lambda f: np.delete(np.loadtxt(f), 2, 1).reshape(BINS_X, BINS_Y, 3),
@@ -48,7 +48,7 @@ def plot_densities() -> None:
         ax.plot(
             density[0, :, 0],
             np.sum(density[:, :, 2], axis=0) / BINS_X,
-            label=f"{qmc[0 if i < 4 else 1]} $\mu={dipole_moments[i % 4]}$",
+            label=f"{qmc[0 if i < 4 else 1]} $\ell_{{dd}}={dipole_moments[i % 4]}$",
         )
     ax.set(xlabel="$x$ position (a.u.)", ylabel="Number density (a.u.)")
     ax.legend(loc="upper right")

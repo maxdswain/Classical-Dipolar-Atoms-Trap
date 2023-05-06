@@ -119,14 +119,15 @@ def plot_potential() -> None:
 
 
 def plot_potentials() -> None:
-    _, ax = plt.subplots()
-    r = np.linspace(1, 6, 101)  # Change ranges of values to ones relevant to system length scales
-    for x in [WALL_REPULSION_COEFFICIENT * 10**i for i in range(-2, 3)]:
+    _, ax = plt.subplots(figsize=(12, 9))
+    r = np.linspace(0.9, 3, 101)  # Change ranges of values to ones relevant to system length scales
+    length_scale = [25, 250, 2500, 25000, 250000]
+    for i, x in enumerate([WALL_REPULSION_COEFFICIENT * 10**i for i in range(-2, 3)]):
         potential = x * r**-ORDER_REPULSIVE_WALL - 2 * DIPOLE_MOMENT**2 * r**-3
-        ax.plot(r, potential, label=f"Potential for $c_{{6}}={x}$")
-    ax.set(xlabel="Difference in position, $r$", ylabel="Potential, $V(r)$", yscale="symlog")
+        ax.plot(r, potential, label=f"$\ell_{{c_{{6}}}}={length_scale[i]}$")
+    ax.set(xlabel="Difference in position, $r$ (a.u.)", ylabel="Potential, $U(r)$ (a.u.)", yscale="symlog")
     ax.legend(loc="upper right")
-    plt.show()
+    plt.savefig("potentials.png")
 
 
 def plot_density(positions: np.ndarray[np.float64]) -> None:
