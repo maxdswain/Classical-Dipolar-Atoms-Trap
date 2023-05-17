@@ -1,10 +1,12 @@
 # Classical Simulation of Dipolar Atoms in a Trap
-A Metropolis-Hastings classical Monte Carlo algorithm for sampling the Boltzmann distribution for dipolar atoms in a trapping potential.
+This program classically simulates N dipolar atomic atoms in a harmonic trapping potential using the Metropolis-Hastings Monte Carlo algorithm for sampling the Boltzmann distribution.
 
-## Outline
-- `main`: File containing the main Metropolis-Hastings algorithm as well as some functions to process energies (reblocking) and to calculate error.
-- `analysis`: Script that reads data produced from main to produce a number of plots.
-- `config`: Input file to determine various properties of the system being simulated in main.
+I implemented the algorithm in C as well as calculations for the number density, pair density and reblocking. I used Python and various scientific libraries for data analysis and the production of plots, examples of which are shown below.
+
+![Low temperature number density contour plot for 15 atoms in a pancake-shaped trap.](images/density_contour.png)
+
+![Plot of the pair correlation function at various different temperature for a pancake-shaped trap showing the phase transition of the system.](images/interparticle_distance.png)
+
 
 ## Libraries Used
 - C libraries:
@@ -14,3 +16,5 @@ A Metropolis-Hastings classical Monte Carlo algorithm for sampling the Boltzmann
     - tomli
     - NumPy
     - matplotlib
+    - seaborn
+    - SciPy
