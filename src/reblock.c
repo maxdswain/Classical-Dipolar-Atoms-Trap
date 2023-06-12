@@ -60,14 +60,15 @@ void read_config(int *ITERATIONS, int *SAMPLING_RATE, int *RTN, int *CUTOFF) {
     if (!conf) {
         error("Cannot parse", errbuf);
     }
-    toml_table_t *properties = toml_table_in(conf, "simulation_properties");  // Traverse to a table
-    toml_datum_t repetitions = toml_int_in(properties, "repetitions");        // Extract values from table
+    toml_table_t *metropolis = toml_table_in(conf, "metropolis");      // Traverse to a table
+    toml_table_t *calculations = toml_table_in(conf, "calculations");  // Traverse to a table
+    toml_datum_t repetitions = toml_int_in(metropolis, "iterations");  // Extract values from table
     *ITERATIONS = repetitions.u.i;
-    toml_datum_t data_sampling_rate = toml_int_in(properties, "sampling_rate");
+    toml_datum_t data_sampling_rate = toml_int_in(metropolis, "sampling_rate");
     *SAMPLING_RATE = data_sampling_rate.u.i;
-    toml_datum_t reblocking_transformation_number = toml_int_in(properties, "reblocking_transformation_number");
+    toml_datum_t reblocking_transformation_number = toml_int_in(calculations, "reblocking_transformation_number");
     *RTN = reblocking_transformation_number.u.i;
-    toml_datum_t cutoff = toml_int_in(properties, "cutoff");
+    toml_datum_t cutoff = toml_int_in(calculations, "cutoff");
     *CUTOFF = cutoff.u.i;
     char num[(int)((ceil(log10(*ITERATIONS / *SAMPLING_RATE)) + 1) * sizeof(char))];
     char errmsg[40] = "Cutoff must be less than ";

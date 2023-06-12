@@ -80,20 +80,22 @@ void read_config(int *N, int *ITERATIONS, int *SAMPLING_RATE, int *CUTOFF, int *
     if (!conf) {
         error("Cannot parse", errbuf);
     }
-    toml_table_t *properties = toml_table_in(conf, "simulation_properties");  // Traverse to a table
-    toml_datum_t particles = toml_int_in(properties, "particles");            // Extract values from table
+    toml_table_t *system = toml_table_in(conf, "system");              // Traverse to a table
+    toml_table_t *metropolis = toml_table_in(conf, "metropolis");      // Traverse to a table
+    toml_table_t *calculations = toml_table_in(conf, "calculations");  // Traverse to a table
+    toml_datum_t particles = toml_int_in(system, "particles");         // Extract values from table
     *N = particles.u.i;
-    toml_datum_t repetitions = toml_int_in(properties, "repetitions");
+    toml_datum_t repetitions = toml_int_in(metropolis, "iterations");
     *ITERATIONS = repetitions.u.i;
-    toml_datum_t data_sampling_rate = toml_int_in(properties, "sampling_rate");
+    toml_datum_t data_sampling_rate = toml_int_in(metropolis, "sampling_rate");
     *SAMPLING_RATE = data_sampling_rate.u.i;
-    toml_datum_t cutoff = toml_int_in(properties, "cutoff");
+    toml_datum_t cutoff = toml_int_in(calculations, "cutoff");
     *CUTOFF = cutoff.u.i;
-    toml_datum_t x_bins = toml_int_in(properties, "bins_x");
+    toml_datum_t x_bins = toml_int_in(calculations, "bins_x");
     *BINS_X = x_bins.u.i;
-    toml_datum_t y_bins = toml_int_in(properties, "bins_y");
+    toml_datum_t y_bins = toml_int_in(calculations, "bins_y");
     *BINS_Y = y_bins.u.i;
-    toml_datum_t z_bins = toml_int_in(properties, "bins_z");
+    toml_datum_t z_bins = toml_int_in(calculations, "bins_z");
     *BINS_Z = z_bins.u.i;
     toml_free(conf);  // Free memory
 }

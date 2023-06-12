@@ -16,36 +16,35 @@ typedef struct {
 } Double3D;
 
 void read_config(int *N, int *ITERATIONS, double *T, double *M, double *SIGMA, double *DIPOLE_VECTOR,
-                 double *FREQUENCY_Z, double *FREQUENCY_TRANSVERSE, double *WALL_REPULSION_COEFFICIENT,
-                 int *WALL_REPULSION_ORDER, int *SAMPLING_RATE, int *READ_CONFIG, int *SEED);
+                 double *FREQUENCY_Z, double *FREQUENCY_TRANSVERSE, double *WALL_COEFFICIENT, int *WALL_ORDER,
+                 int *SAMPLING_RATE, int *READ_CONFIG, int *SEED);
 void position_random_generation(double **positions, int N, double T, double M, double FREQUENCY_Z,
                                 double FREQUENCY_TRANSVERSE, int SEED);
 double magnitude(double *a, int D);
 double dot_product(double *a, double *b, int D);
 double calculate_energy(double **positions, double *position, int N, double M, int index, double *DIPOLE_VECTOR,
-                        double FREQUENCY_Z, double FREQUENCY_TRANSVERSE, double WALL_REPULSION_COEFFICIENT,
-                        int WALL_REPULSION_ORDER);
+                        double FREQUENCY_Z, double FREQUENCY_TRANSVERSE, double WALL_COEFFICIENT, int WALL_ORDER);
 double calculate_total_energy(double **positions, int N, double M, double *DIPOLE_VECTOR, double FREQUENCY_Z,
-                              double FREQUENCY_TRANSVERSE, double WALL_REPULSION_COEFFICIENT, int WALL_REPULSION_ORDER);
+                              double FREQUENCY_TRANSVERSE, double WALL_COEFFICIENT, int WALL_ORDER);
 double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M, double T, double SIGMA,
                             double *DIPOLE_VECTOR, double FREQUENCY_Z, double FREQUENCY_TRANSVERSE,
-                            double WALL_REPULSION_COEFFICIENT, int WALL_REPULSION_ORDER, int SAMPLING_RATE, int SEED);
+                            double WALL_COEFFICIENT, int WALL_ORDER, int SAMPLING_RATE, int SEED);
 void export_positions(Double3D *pos_saved);
 void progress_bar(double progress, double time_taken);
 
 int main(int argc, char **argv) {
     // Declare then read constants from an input file and print them out
-    int N, ITERATIONS, SAMPLING_RATE, WALL_REPULSION_ORDER, READ_CONFIG, SEED;
-    double T, M, SIGMA, DIPOLE_VECTOR[3], FREQUENCY_Z, FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT;
+    int N, ITERATIONS, SAMPLING_RATE, WALL_ORDER, READ_CONFIG, SEED;
+    double T, M, SIGMA, DIPOLE_VECTOR[3], FREQUENCY_Z, FREQUENCY_TRANSVERSE, WALL_COEFFICIENT;
 
-    read_config(&N, &ITERATIONS, &T, &M, &SIGMA, DIPOLE_VECTOR, &FREQUENCY_Z, &FREQUENCY_TRANSVERSE,
-                &WALL_REPULSION_COEFFICIENT, &WALL_REPULSION_ORDER, &SAMPLING_RATE, &READ_CONFIG, &SEED);
+    read_config(&N, &ITERATIONS, &T, &M, &SIGMA, DIPOLE_VECTOR, &FREQUENCY_Z, &FREQUENCY_TRANSVERSE, &WALL_COEFFICIENT,
+                &WALL_ORDER, &SAMPLING_RATE, &READ_CONFIG, &SEED);
     printf(
         "Current variables set in input file:\nN: %d\niterations: %d\ntemperature: %f\nmass: %f\nsigma: "
         "%e\ndipole vector: %f %f %f\nfrequency_z: %f\nfrequency_transverse: "
         "%f\nwall repulsion coefficient: %f\nwall repulsion order: %d\n\n",
         N, ITERATIONS, T, M, SIGMA, DIPOLE_VECTOR[0], DIPOLE_VECTOR[1], DIPOLE_VECTOR[2], FREQUENCY_Z,
-        FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT, WALL_REPULSION_ORDER);
+        FREQUENCY_TRANSVERSE, WALL_COEFFICIENT, WALL_ORDER);
 
     // Run simulation using values read from input file then calculate total energy of the last configuration
     double **positions = malloc(N * sizeof(**positions));
@@ -59,7 +58,7 @@ int main(int argc, char **argv) {
     }
     double *energies_saved =
         metropolis_hastings(positions, ITERATIONS, N, M, T, SIGMA, DIPOLE_VECTOR, FREQUENCY_Z, FREQUENCY_TRANSVERSE,
-                            WALL_REPULSION_COEFFICIENT, WALL_REPULSION_ORDER, SAMPLING_RATE, SEED);
+                            WALL_COEFFICIENT, WALL_ORDER, SAMPLING_RATE, SEED);
 
     printf("Energy of last sampled configuration: %e\n", energies_saved[ITERATIONS / SAMPLING_RATE - 1]);
     export_1D_array("energy_data", energies_saved, ITERATIONS / SAMPLING_RATE);
@@ -67,8 +66,8 @@ int main(int argc, char **argv) {
 }
 
 void read_config(int *N, int *ITERATIONS, double *T, double *M, double *SIGMA, double *DIPOLE_VECTOR,
-                 double *FREQUENCY_Z, double *FREQUENCY_TRANSVERSE, double *WALL_REPULSION_COEFFICIENT,
-                 int *WALL_REPULSION_ORDER, int *SAMPLING_RATE, int *READ_CONFIG, int *SEED) {
+                 double *FREQUENCY_Z, double *FREQUENCY_TRANSVERSE, double *WALL_COEFFICIENT, int *WALL_ORDER,
+                 int *SAMPLING_RATE, int *READ_CONFIG, int *SEED) {
     FILE *fp = fopen("input.toml", "r");  // Read and parse toml file
     if (!fp) {
         error("Cannot open input.toml", strerror(errno));
@@ -79,35 +78,36 @@ void read_config(int *N, int *ITERATIONS, double *T, double *M, double *SIGMA, d
     if (!conf) {
         error("Cannot parse", errbuf);
     }
-    toml_table_t *properties = toml_table_in(conf, "simulation_properties");  // Traverse to a table
-    toml_datum_t particles = toml_int_in(properties, "particles");            // Extract values from table
+    toml_table_t *system = toml_table_in(conf, "system");          // Traverse to a table
+    toml_table_t *metropolis = toml_table_in(conf, "metropolis");  // Traverse to a table
+    toml_datum_t particles = toml_int_in(system, "particles");     // Extract values from table
     *N = particles.u.i;
-    toml_datum_t repetitions = toml_int_in(properties, "repetitions");
+    toml_datum_t repetitions = toml_int_in(metropolis, "iterations");
     *ITERATIONS = repetitions.u.i;
-    toml_datum_t temperature = toml_double_in(properties, "temperature");
+    toml_datum_t temperature = toml_double_in(system, "temperature");
     *T = temperature.u.d;
-    toml_datum_t mass = toml_double_in(properties, "mass");
+    toml_datum_t mass = toml_double_in(system, "mass");
     *M = mass.u.d;
-    toml_datum_t trial_sigma = toml_double_in(properties, "sigma");
+    toml_datum_t trial_sigma = toml_double_in(metropolis, "sigma");
     *SIGMA = trial_sigma.u.d;
-    toml_array_t *dipole_vector_array = toml_array_in(properties, "dipole_vector");
+    toml_array_t *dipole_vector_array = toml_array_in(system, "dipole_vector");
     for (int i = 0; i < 3; i++) {
         toml_datum_t toml_dipole_vector = toml_double_at(dipole_vector_array, i);
         DIPOLE_VECTOR[i] = toml_dipole_vector.u.d;
     }
-    toml_datum_t trapping_frequency_z = toml_double_in(properties, "trapping_frequency_z");
+    toml_datum_t trapping_frequency_z = toml_double_in(system, "trapping_frequency_z");
     *FREQUENCY_Z = trapping_frequency_z.u.d;
-    toml_datum_t trapping_frequency_transverse = toml_double_in(properties, "trapping_frequency_transverse");
+    toml_datum_t trapping_frequency_transverse = toml_double_in(system, "trapping_frequency_transverse");
     *FREQUENCY_TRANSVERSE = trapping_frequency_transverse.u.d;
-    toml_datum_t wall_repulsion_coefficient = toml_double_in(properties, "wall_repulsion_coefficient");
-    *WALL_REPULSION_COEFFICIENT = wall_repulsion_coefficient.u.d;
-    toml_datum_t wall_repulsion_order = toml_int_in(properties, "order_repulsive_wall");
-    *WALL_REPULSION_ORDER = wall_repulsion_order.u.i;
-    toml_datum_t data_sampling_rate = toml_int_in(properties, "sampling_rate");
+    toml_datum_t wall_repulsion_coefficient = toml_double_in(system, "wall_coefficient");
+    *WALL_COEFFICIENT = wall_repulsion_coefficient.u.d;
+    toml_datum_t wall_repulsion_order = toml_int_in(system, "wall_order");
+    *WALL_ORDER = wall_repulsion_order.u.i;
+    toml_datum_t data_sampling_rate = toml_int_in(metropolis, "sampling_rate");
     *SAMPLING_RATE = data_sampling_rate.u.i;
-    toml_datum_t read_configuration = toml_bool_in(properties, "monte_carlo_read_configuration");
+    toml_datum_t read_configuration = toml_bool_in(metropolis, "read_initial_configuration");
     *READ_CONFIG = read_configuration.u.b;
-    toml_datum_t seed = toml_int_in(properties, "seed");
+    toml_datum_t seed = toml_int_in(metropolis, "seed");
     *SEED = seed.u.i;
     toml_free(conf);  // Free memory
 }
@@ -150,8 +150,7 @@ double dot_product(double *a, double *b, int D) {
 
 // Function that calculates the potential energy of a given single atom
 double calculate_energy(double **positions, double *position, int N, double M, int index, double *DIPOLE_VECTOR,
-                        double FREQUENCY_Z, double FREQUENCY_TRANSVERSE, double WALL_REPULSION_COEFFICIENT,
-                        int WALL_REPULSION_ORDER) {
+                        double FREQUENCY_Z, double FREQUENCY_TRANSVERSE, double WALL_COEFFICIENT, int WALL_ORDER) {
     const double trapping_potential =
         0.5 * M *
         (FREQUENCY_TRANSVERSE * FREQUENCY_TRANSVERSE * (position[0] * position[0] + position[1] * position[1]) +
@@ -167,16 +166,15 @@ double calculate_energy(double **positions, double *position, int N, double M, i
             distance = magnitude(displacement, 3);
             vector_term = dot_product(displacement, DIPOLE_VECTOR, 3);
             dipole_dipole_interaction += (distance * distance - 3 * vector_term * vector_term) / pow(distance, 5);
-            wall_repulsion += 1 / pow(distance, WALL_REPULSION_ORDER);
+            wall_repulsion += 1 / pow(distance, WALL_ORDER);
         }
     }
-    return trapping_potential + dipole_dipole_interaction + WALL_REPULSION_COEFFICIENT * wall_repulsion;
+    return trapping_potential + dipole_dipole_interaction + WALL_COEFFICIENT * wall_repulsion;
 }
 
 // Function that calculates the total potential energy of a given configuration
 double calculate_total_energy(double **positions, int N, double M, double *DIPOLE_VECTOR, double FREQUENCY_Z,
-                              double FREQUENCY_TRANSVERSE, double WALL_REPULSION_COEFFICIENT,
-                              int WALL_REPULSION_ORDER) {
+                              double FREQUENCY_TRANSVERSE, double WALL_COEFFICIENT, int WALL_ORDER) {
     double total_dipole_dipole_interaction = 0, total_trapping_potential = 0, total_wall_repulsion = 0;
     double displacement[3], distance, vector_term;
 
@@ -192,16 +190,15 @@ double calculate_total_energy(double **positions, int N, double M, double *DIPOL
             distance = magnitude(displacement, 3);
             vector_term = dot_product(displacement, DIPOLE_VECTOR, 3);
             total_dipole_dipole_interaction += (distance * distance - 3 * vector_term * vector_term) / pow(distance, 5);
-            total_wall_repulsion += 1 / pow(distance, WALL_REPULSION_ORDER);
+            total_wall_repulsion += 1 / pow(distance, WALL_ORDER);
         }
     }
-    return total_trapping_potential + total_dipole_dipole_interaction +
-           WALL_REPULSION_COEFFICIENT * total_wall_repulsion;
+    return total_trapping_potential + total_dipole_dipole_interaction + WALL_COEFFICIENT * total_wall_repulsion;
 }
 
 double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M, double T, double SIGMA,
                             double *DIPOLE_VECTOR, double FREQUENCY_Z, double FREQUENCY_TRANSVERSE,
-                            double WALL_REPULSION_COEFFICIENT, int WALL_REPULSION_ORDER, int SAMPLING_RATE, int SEED) {
+                            double WALL_COEFFICIENT, int WALL_ORDER, int SAMPLING_RATE, int SEED) {
     clock_t begin = clock();
     gsl_rng_env_setup();
     gsl_rng *r = gsl_rng_alloc(gsl_rng_default);  // Generator type
@@ -220,14 +217,13 @@ double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M,
     for (int i = 0; i < ITERATIONS; i++) {
         for (int index = 0; index < N; index++) {
             energy_previous = calculate_energy(positions, positions[index], N, M, index, DIPOLE_VECTOR, FREQUENCY_Z,
-                                               FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT, WALL_REPULSION_ORDER);
+                                               FREQUENCY_TRANSVERSE, WALL_COEFFICIENT, WALL_ORDER);
             for (int j = 0; j < 3; j++) {
                 trial_positions[j] = positions[index][j] + gsl_ran_gaussian_ziggurat(r, SIGMA);
             }
-            energy_difference =
-                calculate_energy(positions, trial_positions, N, M, index, DIPOLE_VECTOR, FREQUENCY_Z,
-                                 FREQUENCY_TRANSVERSE, WALL_REPULSION_COEFFICIENT, WALL_REPULSION_ORDER) -
-                energy_previous;
+            energy_difference = calculate_energy(positions, trial_positions, N, M, index, DIPOLE_VECTOR, FREQUENCY_Z,
+                                                 FREQUENCY_TRANSVERSE, WALL_COEFFICIENT, WALL_ORDER) -
+                                energy_previous;
             if (energy_difference <= 0) {
                 accepted++;
                 for (int j = 0; j < 3; j++) {
@@ -242,9 +238,8 @@ double *metropolis_hastings(double **positions, int ITERATIONS, int N, double M,
             /* Every SAMPLING_RATE iteration the positions of every atom are saved and
             the total energy of the configuration is calculated then saved */
             if (i % SAMPLING_RATE == 0) {
-                energies_saved[i / SAMPLING_RATE] =
-                    calculate_total_energy(positions, N, M, DIPOLE_VECTOR, FREQUENCY_Z, FREQUENCY_TRANSVERSE,
-                                           WALL_REPULSION_COEFFICIENT, WALL_REPULSION_ORDER);
+                energies_saved[i / SAMPLING_RATE] = calculate_total_energy(
+                    positions, N, M, DIPOLE_VECTOR, FREQUENCY_Z, FREQUENCY_TRANSVERSE, WALL_COEFFICIENT, WALL_ORDER);
                 for (int j = 0; j < N; j++) {
                     for (int k = 0; k < 3; k++) {
                         pos_saved.data[i / SAMPLING_RATE * (pos_saved.n * pos_saved.l) + j * pos_saved.l + k] =

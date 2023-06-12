@@ -1,27 +1,29 @@
-[simulation_properties]
-particles = 100
-repetitions = 100000
-minimization_iterations = 1000
-temperature = 1.0e-3                           # Temperature in Kelvin
-sigma = 1.1e-3                                 # Should be a value so that the acceptance rate is 50%
+[system]
+dipole_vector = [0.0, 0.0, 0.7071067811865476]
 mass = 1.0
-dipole_vector = [
-    0.0,
-    0.0,
-    0.7071067811865476                         # sqrt 0.5
-]
-trapping_frequency_z = 50                      # 50 in Hz 
-trapping_frequency_transverse = 1              # 1 in Hz
-wall_repulsion_coefficient = 1.0e+0
+particles = 100
+temperature = 1.0e-3
+trapping_frequency_transverse = 1
+trapping_frequency_z = 50
+wall_coefficient = 1.0e+0
+wall_order = 6
+
+[metropolis]
+iterations = 100000
 sampling_rate = 5
-reblocking_transformation_number = 3
-cutoff = 4000                                  # cutoff * sample_rate is the iteration at which energies are discarded - be generous in choosing the value
+seed = 38479
+sigma = 1.1e-3                     # Should be a value so that the acceptance rate is 50%
+read_initial_configuration = false
+
+[calculations]
 bins_x = 100
 bins_y = 100
 bins_z = 1
-order_repulsive_wall = 6
-monte_carlo_read_configuration = false
-output_basin_txt_file = true
+cutoff = 4000                        # cutoff * sampling_rate is the iteration at which energies are discarded - be generous in choosing the value
+reblocking_transformation_number = 3 # ((iterations / sampling_rate) - cutoff) / 2^reblocking_transformation_number must be an integer, this is checked when running reblock
+
+[energy_minimisation]
+iterations = 1000
+output_basin_txt_file = true                 # This output file can be used in running Classical Metropolis codes
 output_pd_energy_and_coordinates_file = true
-ground_state_coordinates_for_QMC = false
-seed = 38479
+ground_state_coordinates_for_QMC = false     # This output file can be used in running CASINO codes

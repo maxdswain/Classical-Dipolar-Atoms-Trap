@@ -18,17 +18,17 @@ import seaborn as sns
 with open("input.toml", "rb") as f:
     input = tomllib.load(f)
 
-N = input["simulation_properties"]["particles"]
-ITERATIONS = input["simulation_properties"]["repetitions"]
-T = input["simulation_properties"]["temperature"]
-SAMPLING_RATE = input["simulation_properties"]["sampling_rate"]
-ORDER_REPULSIVE_WALL = input["simulation_properties"]["order_repulsive_wall"]
-WALL_REPULSION_COEFFICIENT = input["simulation_properties"]["wall_repulsion_coefficient"]
-DIPOLE_MOMENT = np.linalg.norm(input["simulation_properties"]["dipole_vector"])
-BINS_X = input["simulation_properties"]["bins_x"]
-BINS_Y = input["simulation_properties"]["bins_y"]
-BINS_Z = input["simulation_properties"]["bins_z"]
-CUTOFF = input["simulation_properties"]["cutoff"]
+N = input["system"]["particles"]
+ITERATIONS = input["metropolis"]["iterations"]
+T = input["system"]["temperature"]
+SAMPLING_RATE = input["metropolis"]["sampling_rate"]
+WALL_ORDER = input["system"]["wall_order"]
+WALL_COEFFICIENT = input["system"]["wall_coefficient"]
+DIPOLE_MOMENT = np.linalg.norm(input["system"]["dipole_vector"])
+BINS_X = input["calculations"]["bins_x"]
+BINS_Y = input["calculations"]["bins_y"]
+BINS_Z = input["calculations"]["bins_z"]
+CUTOFF = input["calculations"]["cutoff"]
 
 plt.rcParams.update({"font.size": 34, "font.family": "Latin Modern Roman", "text.usetex": True, "figure.dpi": 150})
 round_to_n = lambda x, n: x if x == 0 else round(x, -int(np.floor(np.log10(np.abs(x)))) + (n - 1))
@@ -108,10 +108,10 @@ def plot_error() -> None:
 def plot_potential() -> None:
     _, ax = plt.subplots(figsize=(12, 9))
     r = np.linspace(0.9, 3, 101)  # Change ranges of values to ones relevant to system length scales
-    repulsive_wall = WALL_REPULSION_COEFFICIENT * r**-ORDER_REPULSIVE_WALL
+    repulsive_wall = WALL_COEFFICIENT * r**-WALL_ORDER
     dd_interaction = -2 * DIPOLE_MOMENT**2 * r**-3
     ax.plot(r, dd_interaction + repulsive_wall, label="Combined potential")
-    ax.plot(r, repulsive_wall, label=rf"$\frac{{c_{6}}}{{r^{{{ORDER_REPULSIVE_WALL}}}}}$ potential")
+    ax.plot(r, repulsive_wall, label=rf"$\frac{{c_{6}}}{{r^{{{WALL_ORDER}}}}}$ potential")
     ax.plot(r, dd_interaction, label="Dipole-dipole interaction")
     ax.set(xlabel="Difference in position, $r$ (a.u.)", ylabel="Potential, $U(r)$ (a.u.)")
     ax.legend(loc="upper right")
@@ -122,8 +122,8 @@ def plot_potentials() -> None:
     _, ax = plt.subplots(figsize=(12, 9))
     r = np.linspace(0.9, 3, 101)  # Change ranges of values to ones relevant to system length scales
     length_scale = [25, 250, 2500, 25000, 250000]
-    for i, x in enumerate([WALL_REPULSION_COEFFICIENT * 10**i for i in range(-2, 3)]):
-        potential = x * r**-ORDER_REPULSIVE_WALL - 2 * DIPOLE_MOMENT**2 * r**-3
+    for i, x in enumerate([WALL_COEFFICIENT * 10**i for i in range(-2, 3)]):
+        potential = x * r**-WALL_ORDER - 2 * DIPOLE_MOMENT**2 * r**-3
         ax.plot(r, potential, label=f"$\ell_{{c_{{6}}}}={length_scale[i]}$")
     ax.set(xlabel="Difference in position, $r$ (a.u.)", ylabel="Potential, $U(r)$ (a.u.)", yscale="symlog")
     ax.legend(loc="upper right")
@@ -283,6 +283,6 @@ if __name__ == "__main__":
 
     plot_energies_iterations(energies)
     # plot_many_energies_iterations()
-    # plot_density(positions)
+    plot_density(positions)
     # plot_pair_density(positions)
     plot_snapshots(positions, -1)
