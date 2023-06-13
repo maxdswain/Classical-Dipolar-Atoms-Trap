@@ -10,3 +10,5 @@ all: $(BINS)
 
 clean:
 	rm $(BINS) *.out *.png
+
+.PHONY: all clean

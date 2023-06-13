@@ -8,13 +8,11 @@ I implemented the algorithm in C as well as calculations for the number density,
 ![Plot of the pair correlation function at various different temperature for a pancake-shaped trap showing the phase transition of the system.](images/interparticle_distance.png)
 
 
-## Libraries Used
-- C libraries:
-    - [tomlc99](https://github.com/cktan/tomlc99)
-    - [gsl](https://www.gnu.org/software/gsl/doc/html/index.html)
-- Python libraries:
-    - tomli
-    - NumPy
-    - matplotlib
-    - seaborn
-    - SciPy
+## Dependencies
+- `gsl`
+- `matplotlib`
+- `numpy`
+- `scipy`
+- `seaborn`
+- `tomlc99`
+- `tomli`
