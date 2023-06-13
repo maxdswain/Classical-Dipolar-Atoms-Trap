@@ -165,7 +165,7 @@ double *calculate_density(double **configuration, int N, int file_size, int BINS
 }
 
 double *calculate_density_around_z(double **configuration, int N, int file_size, int BINS_X, int BINS_Y, int BINS_Z) {
-    double *distances = malloc(file_size * N * sizeof(*distances));
+    double *distances = calloc(file_size * N, sizeof(*distances));
     for (int i = 0; i < file_size * N; i++) {
         distances[i] = sqrt(configuration[i][0] * configuration[i][0] + configuration[i][1] * configuration[i][1]);
     }
@@ -191,7 +191,7 @@ double *calculate_density_around_z(double **configuration, int N, int file_size,
 }
 
 double *calculate_number_density(double **configuration, int N, int file_size, int BINS_X, int BINS_Y) {
-    double *distances = malloc(file_size * N * sizeof(*distances));
+    double *distances = calloc(file_size * N, sizeof(*distances));
     for (int i = 0; i < file_size * N; i++) {
         distances[i] = sqrt(configuration[i][0] * configuration[i][0] + configuration[i][1] * configuration[i][1]);
     }
