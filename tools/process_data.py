@@ -3,6 +3,8 @@
 import os
 import shutil
 
+import numpy as np
+
 try:
     import tomllib
 except ModuleNotFoundError:
@@ -14,16 +16,19 @@ with open("input.toml", "rb") as f:
 
 N = input["system"]["particles"]
 T = input["system"]["temperature"]
+DIPOLE_MAGNITUDE = np.linalg.norm(input["system"]["dipole_vector"])
+DIPOLE_TILT = np.arcsin(input["system"]["dipole_vector"][1] / DIPOLE_MAGNITUDE)
+WALL_COEFFICIENT = input["system"]["wall_coefficient"]
 ITERATIONS = input["metropolis"]["iterations"]
 if input["system"]["trapping_frequency_z"] > input["system"]["trapping_frequency_transverse"]:
-    TRAP = "pancake"
+    TRAP = "Pancake"
 else:
-    TRAP = "cigar"
+    TRAP = "Cigar"
 
 if __name__ == "__main__":
-    folder_name = f"{TRAP}_N={N}_T={T}_{ITERATIONS}_iterations/"
-    path = os.path.join("Outputs/", folder_name)
-    os.mkdir(path)
+    dir = f"{TRAP}/Dipole_str{DIPOLE_MAGNITUDE:.2e}/c6{WALL_COEFFICIENT:.2e}/Tilt{DIPOLE_TILT:.2e}/N{N:.2e}/T{T:.2e}/Iterations{ITERATIONS:.2e}/"
+    path = os.path.join("Outputs/", dir)
+    os.makedirs(path)
     if os.path.isfile("configuration.out"):
         os.remove("configuration.out")
     shutil.copy("input.toml", os.path.join(path, "input.txt"))
