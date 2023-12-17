@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
+"""Functions to read in, process, analyse and then produce plots of the output data from runs of the Classical Metropolis Algorithm."""
+
 from collections.abc import Callable
 from itertools import combinations
-import os
+from pathlib import Path
 
 try:
     import tomllib
@@ -11,11 +13,12 @@ except ModuleNotFoundError:
 
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.spatial import distance
+import numpy.typing as npt
 import seaborn as sns
+from scipy.spatial import distance
 
 # Read needed constants from input file
-with open("input.toml", "rb") as f:
+with Path("input.toml").open("rb") as f:
     input = tomllib.load(f)
 
 N = input["system"]["particles"]
@@ -34,19 +37,22 @@ plt.rcParams.update({"font.size": 34, "font.family": "Latin Modern Roman", "text
 round_to_n = lambda x, n: x if x == 0 else round(x, -int(np.floor(np.log10(np.abs(x)))) + (n - 1))
 
 
-def read_simulation_data() -> tuple[np.ndarray[np.float64], np.ndarray[np.float64]]:
+def read_simulation_data() -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Read Classical Metropolis Algorithm output data into NumPy arrays."""
     positions = np.loadtxt("position_data.out").reshape(ITERATIONS // SAMPLING_RATE, N, 3)
     energies = np.loadtxt("energy_data.out")
     return positions, energies
 
 
-def boltzmann_distribution(energies: np.ndarray[np.float64]) -> Callable[[float], float]:
+def boltzmann_distribution(energies: npt.NDArray[np.float64]) -> Callable[[float], float]:
+    """Create Boltzmann distribution function."""
     BOLTZMANN_CONSTANT = 1  # Boltzmann constant in defined systems of units based on values in input.toml
     Z = sum([np.exp(-energy / (BOLTZMANN_CONSTANT * T)) for energy in energies])
     return lambda energy: len(energies) * np.exp(-energy / (BOLTZMANN_CONSTANT * T)) / Z
 
 
-def plot_energy_histogram(energies: np.ndarray[np.float64]) -> None:
+def plot_energy_histogram(energies: npt.NDArray[np.float64]) -> None:
+    """Plot Boltzmann energy histogram."""
     _, ax = plt.subplots()
     sorted_energies = sorted(energies)
     distribution = boltzmann_distribution(sorted_energies)
@@ -63,7 +69,8 @@ def plot_energy_histogram(energies: np.ndarray[np.float64]) -> None:
     plt.show()
 
 
-def plot_positions_iterations(positions: np.ndarray[np.float64], component: int) -> None:
+def plot_positions_iterations(positions: npt.NDArray[np.float64], component: int) -> None:
+    """Plot positions (y) of the atoms against iterations (x)."""
     _, ax = plt.subplots()
     for i in range(N):
         ax.plot(np.linspace(SAMPLING_RATE, ITERATIONS, ITERATIONS // SAMPLING_RATE), positions[:, i, component])
@@ -71,7 +78,8 @@ def plot_positions_iterations(positions: np.ndarray[np.float64], component: int)
     plt.show()
 
 
-def plot_energies_iterations(energies: np.ndarray[np.float64]) -> None:
+def plot_energies_iterations(energies: npt.NDArray[np.float64]) -> None:
+    """Plot total energy (y) of the atoms against iterations (x)."""
     _, ax = plt.subplots(figsize=(15, 9))
     ax.plot(np.linspace(0, ITERATIONS, len(energies)), energies)
     ax.set(xlabel="Iterations", ylabel="Energy", ylim=(0, 5 * round_to_n(energies[-1], 1)))
@@ -79,8 +87,9 @@ def plot_energies_iterations(energies: np.ndarray[np.float64]) -> None:
 
 
 def plot_many_energies_iterations() -> None:
+    """Plot total energy (y) of various runs of the simulation against iterations (x)."""
     _, ax = plt.subplots(figsize=(15, 9))
-    energy_data = [np.loadtxt(f) for f in os.listdir(".") if os.path.isfile(f) and "energy" in f]
+    energy_data = [np.loadtxt(f) for f in Path().iterdir() if f.is_file() and "energy" in f.name]
     for energies in energy_data:
         ax.plot(np.linspace(0, ITERATIONS, len(energies)), energies)
     ax.set(xlabel="Iterations", ylabel="Energy (a.u.)", xlim=(0, ITERATIONS))
@@ -88,7 +97,8 @@ def plot_many_energies_iterations() -> None:
     plt.savefig("many_energies_iterations.png")
 
 
-def plot_snapshots(positions: np.ndarray[np.float64], iteration: int) -> None:
+def plot_snapshots(positions: npt.NDArray[np.float64], iteration: int) -> None:
+    """Plot a 2D slice of the positions of the atoms at a specified iteration."""
     _, axs = plt.subplots(1, 3, figsize=(15, 4))
     for i, (coord, x) in enumerate(zip(combinations("xyz", 2), combinations(range(3), 2))):
         axs[i].scatter(positions[iteration, :, x[0]], positions[iteration, :, x[1]], c="black")
@@ -98,6 +108,7 @@ def plot_snapshots(positions: np.ndarray[np.float64], iteration: int) -> None:
 
 
 def plot_error() -> None:
+    """Plot error (y) against reblocking transformation number (x)."""
     _, ax = plt.subplots(figsize=(12, 9))
     errors = np.loadtxt("error_data.out")
     ax.plot(np.arange(1, len(errors) + 1), errors, color="black")
@@ -106,6 +117,7 @@ def plot_error() -> None:
 
 
 def plot_potential() -> None:
+    """Plot interatomic potential against distance between two atoms."""
     _, ax = plt.subplots(figsize=(12, 9))
     r = np.linspace(0.9, 3, 101)  # Change ranges of values to ones relevant to system length scales
     repulsive_wall = WALL_COEFFICIENT * r**-WALL_ORDER
@@ -119,25 +131,27 @@ def plot_potential() -> None:
 
 
 def plot_potentials() -> None:
+    """Plot numerous interatomic potentials that vary by repulsion strength against distance between two atoms."""
     _, ax = plt.subplots(figsize=(12, 9))
     r = np.linspace(0.9, 3, 101)  # Change ranges of values to ones relevant to system length scales
     length_scale = [25, 250, 2500, 25000, 250000]
     for i, x in enumerate([WALL_COEFFICIENT * 10**i for i in range(-2, 3)]):
         potential = x * r**-WALL_ORDER - 2 * DIPOLE_MOMENT**2 * r**-3
-        ax.plot(r, potential, label=f"$\ell_{{c_{{6}}}}={length_scale[i]}$")
+        ax.plot(r, potential, label=rf"$\ell_{{c_{{6}}}}={length_scale[i]}$")
     ax.set(xlabel="Difference in position, $r$ (a.u.)", ylabel="Potential, $U(r)$ (a.u.)", yscale="symlog")
     ax.legend(loc="upper right")
     plt.savefig("potentials.png")
 
 
-def plot_density(positions: np.ndarray[np.float64]) -> None:
+def plot_density(positions: npt.NDArray[np.float64]) -> None:
+    """Plot a colourmap of the number density for a pancake-shaped trap."""
     plt.rcParams.update({"font.size": 40, "xtick.major.pad": 10})
     fig, ax = plt.subplots(figsize=(15, 12))
     density = np.sum(
         [
             np.loadtxt(f).reshape(BINS_X, BINS_Y)
-            for f in os.listdir(".")
-            if os.path.isfile(f) and "density" in f and "out" in f and "pair" not in f
+            for f in Path().iterdir()
+            if f.is_file() and "density" in f.name and "out" in f.name and "pair" not in f.name
         ],
         axis=0,
     )
@@ -157,14 +171,15 @@ def plot_density(positions: np.ndarray[np.float64]) -> None:
     plt.savefig("density_contour.png")
 
 
-def plot_pair_density(positions: np.ndarray[np.float64]) -> None:
+def plot_pair_density(positions: npt.NDArray[np.float64]) -> None:
+    """Plot a pair density colourmap for a cigar-shaped trap."""
     plt.rcParams.update({"font.size": 24})
     fig, ax = plt.subplots(figsize=(15, 12))
     pair_density = np.sum(
         [
             np.loadtxt(f).reshape(BINS_Z, BINS_Z)
-            for f in os.listdir(".")
-            if os.path.isfile(f) and "pair" in f and "out" in f
+            for f in Path().iterdir()
+            if f.is_file() and "pair" in f.name and "out" in f.name
         ],
         axis=0,
     )
@@ -184,14 +199,13 @@ def plot_pair_density(positions: np.ndarray[np.float64]) -> None:
 
 
 def plot_interparticle_distance() -> None:
+    """Plot the pairwise interparticle distances between the atoms."""
     _, ax = plt.subplots(figsize=(12, 9))
     pw_size, pos_size = int(0.5 * N * (N - 1)), int(ITERATIONS / SAMPLING_RATE - CUTOFF)
     temps = [1e0, 1e1, 5e1, 1e2, 1e3]
     for i, positions in enumerate(
-        map(
-            lambda f: np.loadtxt(f).reshape(ITERATIONS // SAMPLING_RATE, N, 3),
-            sorted([f for f in os.listdir(".") if os.path.isfile(f) and "position" in f]),
-        )
+        np.loadtxt(f).reshape(ITERATIONS // SAMPLING_RATE, N, 3)
+        for f in sorted([f for f in Path().iterdir() if f.is_file() and "position" in f.name])
     ):
         mean_distances = np.empty(pos_size * pw_size)
         for j, x in enumerate(positions[CUTOFF:]):
@@ -204,19 +218,15 @@ def plot_interparticle_distance() -> None:
 
 
 def plot_number_density() -> None:
+    """Plot the number density (y) against the distance (x)."""
     _, ax = plt.subplots(figsize=(12, 9))
     temps = [1e0, 1e1, 5e1, 1e2, 1e3]
     for (i, number_density), positions in zip(
         enumerate(
-            map(
-                lambda f: np.loadtxt(f) / (ITERATIONS / SAMPLING_RATE - CUTOFF),
-                sorted([f for f in os.listdir(".") if os.path.isfile(f) and "density" in f and "out" in f]),
-            )
+            np.loadtxt(f) / (ITERATIONS / SAMPLING_RATE - CUTOFF)
+            for f in sorted([f for f in Path().iterdir() if f.is_file() and "density" in f.name and "out" in f.name])
         ),
-        map(
-            lambda f: np.loadtxt(f),
-            sorted([f for f in os.listdir(".") if os.path.isfile(f) and "position" in f]),
-        ),
+        (np.loadtxt(f) for f in sorted([f for f in Path().iterdir() if f.is_file() and "position" in f.name])),
     ):
         distances = np.linalg.norm(positions[N * CUTOFF :, :2], axis=1)
         r_bin_length = 1.1 * (np.max(distances) - np.min(distances)) / BINS_X
@@ -230,19 +240,15 @@ def plot_number_density() -> None:
 
 
 def plot_radial_distribution() -> None:
+    """Plot the radial distribution (y) against the distance (x)."""
     _, ax = plt.subplots(figsize=(12, 9))
     temps = [1e0, 1e1, 5e1, 1e2, 1e3]
     for (i, distance), positions in zip(
         enumerate(
-            map(
-                lambda f: np.loadtxt(f) / (ITERATIONS / SAMPLING_RATE - CUTOFF),
-                sorted([f for f in os.listdir(".") if os.path.isfile(f) and "density" in f and "out" in f]),
-            )
+            np.loadtxt(f) / (ITERATIONS / SAMPLING_RATE - CUTOFF)
+            for f in sorted([f for f in Path().iterdir() if f.is_file() and "density" in f.name and "out" in f.name])
         ),
-        map(
-            lambda f: np.loadtxt(f),
-            sorted([f for f in os.listdir(".") if os.path.isfile(f) and "position" in f]),
-        ),
+        (np.loadtxt(f) for f in sorted([f for f in Path().iterdir() if f.is_file() and "position" in f.name])),
     ):
         distances = np.linalg.norm(positions[N * CUTOFF :, :2], axis=1)
         r_bin_length = 1.1 * (np.max(distances) - np.min(distances)) / BINS_X
@@ -255,19 +261,18 @@ def plot_radial_distribution() -> None:
 
 
 def plot_densities() -> None:
+    """Plot numerous number densities from many runs of the Classical Metropolis algorithm."""
     plt.rcParams.update({"font.size": 20})
     _, ax = plt.subplots(figsize=(12, 9))
     temps = [1e-3, 2.5e-1, 5e-1, 1e0, 1e1]
     for (i, density), positions in zip(
         enumerate(
-            map(
-                lambda f: np.loadtxt(f).reshape(BINS_X, BINS_Y) / (ITERATIONS / SAMPLING_RATE - CUTOFF),
-                sorted([f for f in os.listdir(".") if os.path.isfile(f) and "density" in f and "out" in f]),
-            )
+            np.loadtxt(f).reshape(BINS_X, BINS_Y) / (ITERATIONS / SAMPLING_RATE - CUTOFF)
+            for f in sorted([f for f in Path().iterdir() if f.is_file() and "density" in f.name and "out" in f.name])
         ),
-        map(
-            lambda f: np.loadtxt(f).reshape(ITERATIONS // SAMPLING_RATE, N, 3),
-            sorted([f for f in os.listdir(".") if os.path.isfile(f) and "position" in f]),
+        (
+            np.loadtxt(f).reshape(ITERATIONS // SAMPLING_RATE, N, 3)
+            for f in sorted([f for f in Path().iterdir() if f.is_file() and "position" in f.name])
         ),
     ):
         x_bin_length = 1.1 * (np.max(positions[CUTOFF:, :, 0]) - np.min(positions[CUTOFF:, :, 0])) / BINS_X
